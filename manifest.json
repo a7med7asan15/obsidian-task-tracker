@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-task-tracker",
+  "name": "Task Tracker",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "A Jira-style task tracker over a flat folder of markdown files.",
+  "author": "ahassan",
+  "isDesktopOnly": false
+}
