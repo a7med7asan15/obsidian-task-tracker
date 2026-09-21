@@ -3,3 +3,4 @@ main.js
 .env
 *.log
 .worktrees/
+.superpowers/
