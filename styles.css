@@ -1,1 +1,54 @@
 /* Task Tracker styles. Populated in Task 9. */
+
+.task-tracker-view .tt-root {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tt-sidebar {
+  width: 320px;
+  min-width: 240px;
+  border-right: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tt-list { overflow-y: auto; flex: 1; }
+.tt-detail { flex: 1; overflow-y: auto; padding: 16px 24px; }
+
+.tt-group-header {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.tt-count { opacity: 0.6; }
+
+.tt-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+}
+.tt-row:hover { background: var(--background-modifier-hover); }
+.tt-row.is-selected { background: var(--background-modifier-active-hover); }
+
+.tt-row-top { display: flex; gap: 8px; align-items: baseline; }
+.tt-id { color: var(--text-muted); font-size: 11px; font-family: var(--font-monospace); }
+.tt-title { flex: 1; }
+.tt-warn { color: var(--text-warning); }
+
+.tt-row-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tt-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.tt-due-overdue { background: var(--background-modifier-error); color: var(--text-error); }
+.tt-due-soon { background: var(--background-modifier-success); }
+
+.tt-empty { padding: 24px 12px; color: var(--text-muted); text-align: center; }
