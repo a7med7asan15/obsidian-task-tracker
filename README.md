@@ -1,5 +1,10 @@
 # Obsidian Task Tracker
 
+## Support
+
+If you find this plugin useful, you can support its development here:
+https://buymeacoffee.com/a7med7asan15
+
 A Jira-style task tracker for Obsidian. Tasks are plain markdown files in a
 flat folder; filtering, editing and comments happen in a two-pane GUI.
 
