@@ -23,18 +23,47 @@ function isEmptyValue(v: unknown): boolean {
   return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 }
 
+// A plain YAML scalar is unsafe (needs quoting) when it starts with a flow
+// indicator or other reserved character (so it isn't misread as a flow
+// sequence/mapping/anchor/tag/comment), has significant leading/trailing
+// whitespace, contains a colon-space (a mapping separator) or space-hash (a
+// comment start), is empty, or looks like an ISO date/timestamp -- YAML's
+// core schema implicitly resolves an unquoted scalar of that shape to a
+// !!timestamp, which would silently turn `created`/`updated` into a
+// non-string type for any spec-following parser.
+const UNSAFE_SCALAR_START = /^[[\]{}#&*!|>'"%@`]/;
+const LOOKS_LIKE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}([Tt ]|$)/;
+
+function needsQuoting(s: string): boolean {
+  return (
+    s.length === 0 ||
+    /^\s/.test(s) ||
+    /\s$/.test(s) ||
+    UNSAFE_SCALAR_START.test(s) ||
+    /: |:$/.test(s) ||
+    / #/.test(s) ||
+    LOOKS_LIKE_TIMESTAMP.test(s)
+  );
+}
+
+function yamlScalar(v: unknown): string {
+  const s = String(v);
+  return needsQuoting(s) ? JSON.stringify(s) : s;
+}
+
 /**
- * YAML scalar rendering for `createTask`'s hand-built initial frontmatter
- * block. This is the one place a field value still has to be turned into
- * YAML text by hand: the file doesn't exist yet, so there's nothing for
- * `VaultAdapter#processFrontmatter` to mutate. Every other write goes
- * through `processFrontmatter`, which serializes correctly on its own.
+ * YAML scalar/flow-sequence rendering for `createTask`'s hand-built initial
+ * frontmatter block. This is the one place a field value still has to be
+ * turned into YAML text by hand: the file doesn't exist yet, so there's
+ * nothing for `VaultAdapter#processFrontmatter` to mutate. Every other
+ * write goes through `processFrontmatter`, which serializes correctly on
+ * its own. Array items get the same escaping as top-level scalars -- they
+ * used to get none at all.
  */
 function yamlValue(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(String).join(', ')}]`;
+  if (Array.isArray(v)) return `[${v.map((item) => yamlScalar(item)).join(', ')}]`;
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  const s = String(v);
-  return /[:#]|^\s|\s$/.test(s) ? JSON.stringify(s) : s;
+  return yamlScalar(v);
 }
 
 function applyField(fm: Record<string, unknown>, key: string, value: unknown): void {
@@ -82,7 +111,7 @@ export class TaskWriter {
     for (const [k, v] of Object.entries(fields)) {
       if (!isEmptyValue(v)) fm.push(`${k}: ${yamlValue(v)}`);
     }
-    fm.push(`created: ${now}`, `updated: ${now}`);
+    fm.push(`created: ${yamlValue(now)}`, `updated: ${yamlValue(now)}`);
 
     const content = `---\n${fm.join('\n')}\n---\n\n## Description\n\n\n\n## Comments\n\n`;
     const path = await this.freePath(

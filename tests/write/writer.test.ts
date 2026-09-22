@@ -232,8 +232,9 @@ describe('createTask', () => {
   it('stamps created and updated', async () => {
     const path = await writer.createTask('X', {}, []);
     const content = await vault.read(path);
-    expect(content).toMatch(/created: \d{4}-\d{2}-\d{2}T/);
-    expect(content).toMatch(/updated: \d{4}-\d{2}-\d{2}T/);
+    // Quoted: see "quotes created and updated the same way" below for why.
+    expect(content).toMatch(/created: "\d{4}-\d{2}-\d{2}T/);
+    expect(content).toMatch(/updated: "\d{4}-\d{2}-\d{2}T/);
   });
 
   it('serializes array values as YAML lists', async () => {
@@ -253,6 +254,39 @@ describe('createTask', () => {
     const path = await writer.createTask('X', {}, []);
     expect(path).not.toBe('Tasks/TASK-1 X.md');
     expect(await vault.read('Tasks/TASK-1 X.md')).toBe('pre-existing');
+  });
+
+  // Important 2: yamlValue under-escapes realistic input.
+  it('quotes a title that would otherwise parse as a YAML flow sequence', async () => {
+    const path = await writer.createTask('[URGENT] Fix login', {}, []);
+    const content = await vault.read(path);
+    expect(content).toContain('title: "[URGENT] Fix login"');
+    // Unquoted, this would be a YAML syntax error (`[URGENT] Fix login` is
+    // not a well-formed flow sequence), which corrupts the whole file.
+    expect(content).not.toContain('title: [URGENT] Fix login');
+  });
+
+  it('escapes array items containing YAML-significant characters', async () => {
+    const path = await writer.createTask('X', { labels: ['auth', 'needs: review'] }, []);
+    const content = await vault.read(path);
+    expect(content).toContain('labels: [auth, "needs: review"]');
+  });
+
+  it('quotes created and updated the same way', async () => {
+    const path = await writer.createTask('X', {}, []);
+    const content = await vault.read(path);
+    const created = /created: (.+)/.exec(content)?.[1];
+    const updated = /updated: (.+)/.exec(content)?.[1];
+    expect(created?.startsWith('"')).toBe(true);
+    expect(updated?.startsWith('"')).toBe(true);
+
+    // Round-trip through the same frontmatter parser processFrontmatter
+    // uses elsewhere in this suite, and confirm both come back as strings
+    // (not dates/numbers) -- so created-based sorting keeps comparing
+    // strings consistently either way.
+    const fm = parseFrontmatterBlock(splitFrontmatter(content).frontmatter);
+    expect(typeof fm.created).toBe('string');
+    expect(typeof fm.updated).toBe('string');
   });
 });
 
