@@ -52,4 +52,8 @@ export class TaskTrackerView extends ItemView {
   async onClose(): Promise<void> {
     render(null, this.contentEl);
   }
+
+  selectTask(path: string): void {
+    this.store.select(path);
+  }
 }

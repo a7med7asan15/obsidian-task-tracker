@@ -5,6 +5,8 @@ import type { TaskTrackerSettings } from './settings/types';
 import { ObsidianVaultAdapter } from './write/obsidianVault';
 import { TaskWriter } from './write/writer';
 import { TaskTrackerView, VIEW_TYPE_TASK_TRACKER } from './ui/TaskTrackerView';
+import { CreateTaskModal } from './ui/CreateTaskModal';
+import { TaskTrackerSettingTab } from './settings/SettingsTab';
 
 export default class TaskTrackerPlugin extends Plugin {
   settings: TaskTrackerSettings = DEFAULT_SETTINGS;
@@ -38,10 +40,7 @@ export default class TaskTrackerPlugin extends Plugin {
     this.registerView(
       VIEW_TYPE_TASK_TRACKER,
       (leaf: WorkspaceLeaf) =>
-        new TaskTrackerView(leaf, this.index, this.writer, () => this.settings, () => {
-          // Replaced by the create modal in Task 12.
-          new Notice('Create issue arrives in Task 12.');
-        }),
+        new TaskTrackerView(leaf, this.index, this.writer, () => this.settings, () => this.openCreateModal()),
     );
 
     this.addRibbonIcon('check-square', 'Open Task Tracker', () => { void this.activateView(); });
@@ -50,6 +49,13 @@ export default class TaskTrackerPlugin extends Plugin {
       name: 'Open Task Tracker',
       callback: () => { void this.activateView(); },
     });
+    this.addCommand({
+      id: 'create-task',
+      name: 'Create issue',
+      callback: () => this.openCreateModal(),
+    });
+
+    this.addSettingTab(new TaskTrackerSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => { void this.index.rebuild(); });
 
@@ -80,5 +86,23 @@ export default class TaskTrackerPlugin extends Plugin {
     const leaf = this.app.workspace.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_TYPE_TASK_TRACKER, active: true });
     await this.app.workspace.revealLeaf(leaf);
+  }
+
+  openCreateModal(): void {
+    new CreateTaskModal(this.app, this.settings, (title, fields) => {
+      void (async () => {
+        try {
+          const path = await this.writer.createTask(title, fields, this.index.ids());
+          await this.index.updateOne(path);
+          const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TASK_TRACKER);
+          for (const leaf of leaves) {
+            const view = leaf.view;
+            if (view instanceof TaskTrackerView) view.selectTask(path);
+          }
+        } catch (e) {
+          new Notice(`Task Tracker: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      })();
+    }).open();
   }
 }
