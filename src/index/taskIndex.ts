@@ -12,6 +12,13 @@ export interface MetadataSource {
 export class TaskIndex {
   private tasks = new Map<string, Task>();
   private listeners = new Set<() => void>();
+  /**
+   * Paths whose body has been explicitly loaded via loadBody(). A later
+   * metadataCache-driven updateOne() for one of these paths must re-read
+   * the full content instead of frontmatter-only, or it would blank out
+   * the description/comments the detail pane is already showing (C4).
+   */
+  private loadedBodies = new Set<string>();
 
   constructor(
     private source: MetadataSource,
@@ -37,8 +44,16 @@ export class TaskIndex {
     this.tasks.set(path, parseTask(path, fm, ''));
   }
 
+  /** Full content read — used for paths whose body was previously loaded. */
+  private async indexOneWithBody(path: string): Promise<void> {
+    const fm = this.source.frontmatterOf(path) ?? {};
+    const content = await this.source.read(path);
+    this.tasks.set(path, parseTask(path, fm, content));
+  }
+
   async rebuild(): Promise<void> {
     this.tasks.clear();
+    this.loadedBodies.clear();
     for (const path of this.source.pathsIn(this.tasksFolder())) {
       this.indexOne(path);
     }
@@ -47,11 +62,16 @@ export class TaskIndex {
 
   async updateOne(path: string): Promise<void> {
     if (!this.inFolder(path)) return;
-    this.indexOne(path);
+    if (this.loadedBodies.has(path)) {
+      await this.indexOneWithBody(path);
+    } else {
+      this.indexOne(path);
+    }
     this.emit();
   }
 
   remove(path: string): void {
+    this.loadedBodies.delete(path);
     if (this.tasks.delete(path)) this.emit();
   }
 
@@ -62,6 +82,7 @@ export class TaskIndex {
     const content = await this.source.read(path);
     const task = parseTask(path, fm, content);
     this.tasks.set(path, task);
+    this.loadedBodies.add(path);
     this.emit();
     return task;
   }

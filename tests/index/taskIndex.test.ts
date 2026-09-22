@@ -112,4 +112,40 @@ describe('TaskIndex', () => {
     expect(loaded?.description).toBe('Full body.');
     expect(index.get('Tasks/TASK-3 C.md')?.description).toBe('Full body.');
   });
+
+  it('does not blank a loaded body on a subsequent updateOne (C4)', async () => {
+    source.add('Tasks/TASK-3 C.md', { id: 'TASK-3', title: 'C' },
+      '---\nid: TASK-3\n---\n\n## Description\n\nFull body.\n');
+    await index.rebuild();
+    await index.loadBody('Tasks/TASK-3 C.md');
+    expect(index.get('Tasks/TASK-3 C.md')?.description).toBe('Full body.');
+
+    // Simulate Obsidian's metadataCache 'changed' event firing after the
+    // body was already loaded (e.g. "Open as note" edits, or a race with
+    // the writer's own re-sync). updateOne must not blank what loadBody
+    // already populated.
+    await index.updateOne('Tasks/TASK-3 C.md');
+    expect(index.get('Tasks/TASK-3 C.md')?.description).toBe('Full body.');
+  });
+
+  it('picks up new body content on updateOne after a load (C4)', async () => {
+    source.add('Tasks/TASK-3 C.md', { id: 'TASK-3', title: 'C' },
+      '---\nid: TASK-3\n---\n\n## Description\n\nFull body.\n');
+    await index.rebuild();
+    await index.loadBody('Tasks/TASK-3 C.md');
+
+    source.add('Tasks/TASK-3 C.md', { id: 'TASK-3', title: 'C' },
+      '---\nid: TASK-3\n---\n\n## Description\n\nEdited body.\n');
+    await index.updateOne('Tasks/TASK-3 C.md');
+    expect(index.get('Tasks/TASK-3 C.md')?.description).toBe('Edited body.');
+  });
+
+  it('updateOne stays frontmatter-only for a task whose body was never loaded (C4)', async () => {
+    await index.rebuild();
+    const spy = vi.spyOn(source, 'read');
+    source.add('Tasks/TASK-1 A.md', { id: 'TASK-1', title: 'A renamed', status: 'To Do' });
+    await index.updateOne('Tasks/TASK-1 A.md');
+    expect(spy).not.toHaveBeenCalled();
+    expect(index.get('Tasks/TASK-1 A.md')?.title).toBe('A renamed');
+  });
 });
