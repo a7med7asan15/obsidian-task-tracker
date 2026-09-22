@@ -37,6 +37,12 @@ Reproduced on staging.
 
 Anything else you write in the file is left alone by the plugin.
 
+Section boundaries (`## Description`, `## Comments`, ...) are found by
+scanning for the next top-level `## ` heading. If you type a `## ` heading
+of your own inside a description or comment, the plugin demotes it to `### `
+when saving so it can't be mistaken for a section boundary — your heading
+and its text are kept, just one level down.
+
 ## Settings
 
 - **Tasks folder** — where task files live. Flat; subfolders are ignored.

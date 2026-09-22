@@ -1,8 +1,31 @@
 import { locateSections, parseComments } from './parse';
 import type { Comment } from './types';
 
+/**
+ * `locateSections` finds section boundaries by scanning for the next
+ * top-level `## ` heading anywhere in the document (see parse.ts). That
+ * makes it possible for a description or comment body that itself contains
+ * an ordinary markdown `## Sub heading` to be mistaken for a real section
+ * boundary (e.g. the start of the next `## Comments`), which corrupts the
+ * write: re-saving the same text duplicates content and truncates the
+ * parsed description/comment body.
+ *
+ * To keep `locateSections`'s simple "next `##` heading" rule correct, any
+ * top-level `## ` heading found INSIDE user-authored content is demoted one
+ * level (`## ` -> `### `) before it is written to disk. This is a disclosed,
+ * intentional trade-off: a user's own `##` heading inside a description or
+ * comment renders as `###` once saved. It is not silent data loss — the
+ * heading and its text are preserved, just one level down — and it is far
+ * preferable to the alternative (duplicated content / truncated parsing).
+ * Deeper headings (`###`, `####`, ...) and single `#` headings are left
+ * alone since they never collide with the `## ` boundary matcher.
+ */
+function demoteTopLevelHeadings(text: string): string {
+  return text.replace(/^##(?=\s)/gm, '###');
+}
+
 export function formatComment(author: string, timestamp: string, body: string): string {
-  return `### ${author} — ${timestamp}\n${body.trim()}\n`;
+  return `### ${author} — ${timestamp}\n${demoteTopLevelHeadings(body.trim())}\n`;
 }
 
 /**
@@ -33,7 +56,12 @@ function replaceSection(
 
 export function setDescription(content: string, description: string): string {
   const s = locateSections(content);
-  return replaceSection(content, 'Description', [s.descriptionStart, s.descriptionEnd], description);
+  return replaceSection(
+    content,
+    'Description',
+    [s.descriptionStart, s.descriptionEnd],
+    demoteTopLevelHeadings(description),
+  );
 }
 
 function renderComments(comments: Comment[]): string {

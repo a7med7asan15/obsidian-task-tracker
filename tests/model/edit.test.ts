@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addComment, deleteComment, editComment, setDescription } from '../../src/model/edit';
-import { locateSections, parseComments } from '../../src/model/parse';
+import { locateSections, parseComments, parseTask } from '../../src/model/parse';
 
 const FILE = `---
 id: TASK-42
@@ -64,6 +64,24 @@ describe('setDescription', () => {
     const once = setDescription(FILE, 'Same.');
     expect(setDescription(once, 'Same.')).toBe(once);
   });
+
+  it('does not duplicate content when the description itself contains a ## heading (C3)', () => {
+    const withHeading = 'intro\n\n## Sub section\n\nmore';
+    const once = setDescription(FILE, withHeading);
+    const twice = setDescription(once, withHeading);
+    // Writing the identical description a second time must not grow the file.
+    expect(twice).toBe(once);
+    // The user's own "##" must not be mistaken for a real section boundary:
+    // "## Notes" and the Comments section must both still be intact.
+    expect(twice).toContain('## Notes');
+    expect(commentsOf(twice)).toHaveLength(2);
+    // The parsed description must round-trip (not be truncated to "intro").
+    const fm = { id: 'TASK-42', title: 'Fix login redirect' };
+    const parsed = parseTask('TASK-42.md', fm, twice);
+    expect(parsed.description).toContain('intro');
+    expect(parsed.description).toContain('more');
+    expect(parsed.description).toContain('Sub section');
+  });
 });
 
 describe('addComment', () => {
@@ -85,6 +103,22 @@ describe('addComment', () => {
   it('preserves a multi-line body', () => {
     const out = addComment(FILE, 'Ahmed', '2026-09-23T08:00:00', 'line one\nline two');
     expect(commentsOf(out)[2].body).toBe('line one\nline two');
+  });
+
+  it('does not let a comment body\'s own ## heading corrupt the Comments boundary (C3)', () => {
+    const withHeading = 'intro\n\n## Sub section\n\nmore';
+    const out = addComment(FILE, 'Ahmed', '2026-09-23T08:00:00', withHeading);
+    // The Notes section and both original comments must survive: a stray
+    // "##" in the new comment body must not be read as a section heading.
+    expect(out).toContain('## Notes');
+    const cs = commentsOf(out);
+    expect(cs).toHaveLength(3);
+    expect(cs[2].body).toContain('intro');
+    expect(cs[2].body).toContain('more');
+    // Editing again with the same body must stay idempotent (no growth).
+    const editedOnce = editComment(out, cs[2].id, withHeading);
+    const editedTwice = editComment(editedOnce, cs[2].id, withHeading);
+    expect(editedTwice).toBe(editedOnce);
   });
 });
 
