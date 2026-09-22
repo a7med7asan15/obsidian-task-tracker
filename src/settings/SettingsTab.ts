@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import { App, debounce, Notice, PluginSettingTab, Setting, type Debouncer } from 'obsidian';
 import type TaskTrackerPlugin from '../main';
 import type { FieldDef, FieldType } from '../schema/types';
 import {
@@ -8,8 +8,19 @@ import {
 const TYPES: FieldType[] = ['text', 'number', 'date', 'select', 'multiselect', 'checkbox', 'person'];
 
 export class TaskTrackerSettingTab extends PluginSettingTab {
+  /**
+   * `saveSettings()` does a disk write plus a full `index.rebuild()` and
+   * change-event emit — expensive to run on every keystroke. Text inputs
+   * below debounce through this instead of saving on every `onChange`, so
+   * typing (e.g. into "Tasks folder") doesn't re-index against every
+   * partial string. `resetTimer: true` restarts the wait on each call, so
+   * the save only fires once typing pauses.
+   */
+  private debouncedSave: Debouncer<[], void>;
+
   constructor(app: App, private plugin: TaskTrackerPlugin) {
     super(app, plugin);
+    this.debouncedSave = debounce(() => { void this.plugin.saveSettings(); }, 400, true);
   }
 
   display(): void {
@@ -27,25 +38,25 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Tasks folder')
       .setDesc('Flat folder holding task files.')
-      .addText((t) => t.setValue(s.tasksFolder).onChange(async (v) => {
+      .addText((t) => t.setValue(s.tasksFolder).onChange((v) => {
         s.tasksFolder = v.trim() || 'Tasks';
-        await this.plugin.saveSettings();
+        this.debouncedSave();
       }));
 
     new Setting(containerEl)
       .setName('ID prefix')
       .setDesc('Task IDs are <prefix>-<number>.')
-      .addText((t) => t.setValue(s.idPrefix).onChange(async (v) => {
+      .addText((t) => t.setValue(s.idPrefix).onChange((v) => {
         s.idPrefix = v.trim().toUpperCase() || 'TASK';
-        await this.plugin.saveSettings();
+        this.debouncedSave();
       }));
 
     new Setting(containerEl)
       .setName('Your name')
       .setDesc('Author stamped on comments.')
-      .addText((t) => t.setValue(s.authorName).onChange(async (v) => {
+      .addText((t) => t.setValue(s.authorName).onChange((v) => {
         s.authorName = v.trim() || 'Me';
-        await this.plugin.saveSettings();
+        this.debouncedSave();
       }));
 
     new Setting(containerEl).setName('Status and dates').setHeading();
@@ -91,18 +102,18 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName(`${f.label} (${f.type})`)
         .setDesc(`Key: ${f.key}${f.options?.length ? ` · ${f.options.join(', ')}` : ''}`)
-        .addText((t) => t.setPlaceholder('Label').setValue(f.label).onChange(async (v) => {
+        .addText((t) => t.setPlaceholder('Label').setValue(f.label).onChange((v) => {
           if (v.trim().length === 0) return;
           s.schema = updateField(s.schema, f.key, { label: v.trim() });
-          await this.plugin.saveSettings();
+          this.debouncedSave();
         }))
         .addText((t) => t.setPlaceholder('Options, comma separated')
           .setValue((f.options ?? []).join(', '))
           .setDisabled(f.type !== 'select' && f.type !== 'multiselect')
-          .onChange(async (v) => {
+          .onChange((v) => {
             const options = v.split(',').map((x) => x.trim()).filter((x) => x.length > 0);
             s.schema = updateField(s.schema, f.key, { options });
-            await this.plugin.saveSettings();
+            this.debouncedSave();
           }))
         .addToggle((t) => t.setTooltip('Show on list rows')
           .setValue(f.showInList === true)
