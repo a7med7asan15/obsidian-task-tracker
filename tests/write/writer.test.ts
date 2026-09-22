@@ -210,6 +210,20 @@ describe('nextId', () => {
   it('ignores malformed ids', () => {
     expect(writer.nextId(['TASK-abc', 'TASK-4'])).toBe('TASK-5');
   });
+
+  // Important 3: idPrefix is free-text in settings, and was interpolated
+  // into a RegExp unescaped.
+  it('does not throw when the prefix contains a regex metacharacter', () => {
+    const w = new TaskWriter(vault, () => ({ ...settings(), idPrefix: 'A(B' }));
+    expect(() => w.nextId([])).not.toThrow();
+    expect(w.nextId(['A(B-3'])).toBe('A(B-4');
+  });
+
+  it('does not treat "." in the prefix as a wildcard', () => {
+    const w = new TaskWriter(vault, () => ({ ...settings(), idPrefix: 'A.B' }));
+    // 'AxB-5' would falsely match if '.' were left as a regex wildcard.
+    expect(w.nextId(['AxB-5', 'A.B-2'])).toBe('A.B-3');
+  });
 });
 
 describe('createTask', () => {

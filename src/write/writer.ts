@@ -71,6 +71,13 @@ function applyField(fm: Record<string, unknown>, key: string, value: unknown): v
   else fm[key] = value;
 }
 
+/** `idPrefix` is free-text in the settings tab; escape it before it goes
+ * into a RegExp so a metacharacter (`(`, `.`, ...) can't throw or silently
+ * change what the pattern matches. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class TaskWriter {
   constructor(
     private vault: VaultAdapter,
@@ -79,7 +86,7 @@ export class TaskWriter {
 
   nextId(existingIds: string[]): string {
     const prefix = this.settings().idPrefix;
-    const re = new RegExp(`^${prefix}-(\\d+)$`);
+    const re = new RegExp(`^${escapeRegExp(prefix)}-(\\d+)$`);
     let max = 0;
     for (const id of existingIds) {
       const m = re.exec(id);
