@@ -152,7 +152,14 @@ export class TaskWriter {
     });
   }
 
-  async setTitle(path: string, title: string): Promise<string> {
+  /**
+   * Sets the frontmatter title and, when the id/title pair maps to a
+   * different filename, renames the file to match. On a filename
+   * collision the frontmatter title is still updated but the rename is
+   * skipped -- `collision: true` tells the caller so it can surface that
+   * (the spec requires a Notice here, not a silent no-op).
+   */
+  async setTitle(path: string, title: string): Promise<{ path: string; collision: boolean }> {
     const { tasksFolder } = this.settings();
     let id: string | undefined;
     await this.vault.processFrontmatter(path, (fm) => {
@@ -161,14 +168,14 @@ export class TaskWriter {
       id = typeof fm.id === 'string' ? fm.id : undefined;
     });
 
-    if (id === undefined) return path;
+    if (id === undefined) return { path, collision: false };
 
     const target = `${tasksFolder}/${sanitizeFilename(`${id} ${title}`)}.md`;
-    if (target === path) return path;
-    if (await this.vault.exists(target)) return path;
+    if (target === path) return { path, collision: false };
+    if (await this.vault.exists(target)) return { path, collision: true };
 
     await this.vault.rename(path, target);
-    return target;
+    return { path: target, collision: false };
   }
 
   async setDescriptionAt(path: string, description: string): Promise<void> {

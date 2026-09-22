@@ -82,7 +82,12 @@ export function App({ index, writer, store, settings, openAsNote, onCreate }: Ap
               await index.loadBody(selected.path);
             })}
             onSetTitle={(t) => guard(async () => {
-              const next = await writer.setTitle(selected.path, t);
+              const { path: next, collision } = await writer.setTitle(selected.path, t);
+              if (collision) {
+                new Notice(
+                  'Task Tracker: kept the old filename -- a file with that name already exists.',
+                );
+              }
               store.select(next);
               await index.loadBody(next);
             })}

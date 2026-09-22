@@ -390,7 +390,7 @@ describe('frontmatter mutation safety (Critical 1 / Critical 2)', () => {
 describe('setTitle', () => {
   it('renames the file and updates the frontmatter title', async () => {
     const path = await writer.createTask('Old name', {}, []);
-    const next = await writer.setTitle(path, 'New name');
+    const { path: next } = await writer.setTitle(path, 'New name');
     expect(next).toBe('Tasks/TASK-1 New name.md');
     expect(await vault.read(next)).toContain('title: New name');
     expect(vault.files.has(path)).toBe(false);
@@ -399,10 +399,26 @@ describe('setTitle', () => {
   it('keeps the old filename when the target already exists', async () => {
     const path = await writer.createTask('Old name', {}, []);
     await vault.write('Tasks/TASK-1 Taken.md', 'other');
-    const next = await writer.setTitle(path, 'Taken');
+    const { path: next } = await writer.setTitle(path, 'Taken');
     expect(next).toBe(path);
     expect(await vault.read(path)).toContain('title: Taken');
     expect(await vault.read('Tasks/TASK-1 Taken.md')).toBe('other');
+  });
+
+  // Important 5: a filename collision must be signalled to the caller so
+  // the UI can show a Notice, per the spec ("the write keeps the old
+  // filename and updates only the frontmatter title, WITH A NOTICE").
+  it('signals a collision so the caller can notify the user', async () => {
+    const path = await writer.createTask('Old name', {}, []);
+    await vault.write('Tasks/TASK-1 Taken.md', 'other');
+    const result = await writer.setTitle(path, 'Taken');
+    expect(result).toEqual({ path, collision: true });
+  });
+
+  it('does not signal a collision on an ordinary rename', async () => {
+    const path = await writer.createTask('Old name', {}, []);
+    const result = await writer.setTitle(path, 'New name');
+    expect(result).toEqual({ path: 'Tasks/TASK-1 New name.md', collision: false });
   });
 });
 
