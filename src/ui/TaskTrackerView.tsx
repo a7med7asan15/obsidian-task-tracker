@@ -16,6 +16,7 @@ export class TaskTrackerView extends ItemView {
     private index: TaskIndex,
     private writer: TaskWriter,
     private settings: () => TaskTrackerSettings,
+    private onCreate: () => void,
   ) {
     super(leaf);
   }
@@ -42,6 +43,7 @@ export class TaskTrackerView extends ItemView {
         store={this.store}
         settings={this.settings}
         openAsNote={(path) => { void this.app.workspace.openLinkText(path, '', true); }}
+        onCreate={this.onCreate}
       />,
       this.contentEl,
     );

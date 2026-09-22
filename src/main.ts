@@ -1,4 +1,4 @@
-import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
 import { TaskIndex, type MetadataSource } from './index/taskIndex';
 import { DEFAULT_SETTINGS, mergeSettings } from './settings/defaults';
 import type { TaskTrackerSettings } from './settings/types';
@@ -38,7 +38,10 @@ export default class TaskTrackerPlugin extends Plugin {
     this.registerView(
       VIEW_TYPE_TASK_TRACKER,
       (leaf: WorkspaceLeaf) =>
-        new TaskTrackerView(leaf, this.index, this.writer, () => this.settings),
+        new TaskTrackerView(leaf, this.index, this.writer, () => this.settings, () => {
+          // Replaced by the create modal in Task 12.
+          new Notice('Create issue arrives in Task 12.');
+        }),
     );
 
     this.addRibbonIcon('check-square', 'Open Task Tracker', () => { void this.activateView(); });

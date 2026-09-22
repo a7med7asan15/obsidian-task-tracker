@@ -52,3 +52,60 @@
 .tt-due-soon { background: var(--background-modifier-success); }
 
 .tt-empty { padding: 24px 12px; color: var(--text-muted); text-align: center; }
+
+.tt-filterbar {
+  padding: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tt-filter-row { display: flex; gap: 6px; align-items: center; }
+.tt-search { flex: 1; min-width: 0; }
+.tt-create { white-space: nowrap; }
+.tt-toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+
+.tt-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tt-chips-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
+.tt-chip {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--background-modifier-border);
+  border: none;
+  cursor: pointer;
+}
+.tt-chip.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+
+.tt-detail-inner { max-width: 760px; }
+.tt-detail-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.tt-title-input {
+  width: 100%;
+  font-size: 20px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px;
+}
+.tt-title-input:hover { border-color: var(--background-modifier-border); }
+
+.tt-fields { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; margin: 16px 0; }
+.tt-field { display: contents; }
+.tt-field-label { color: var(--text-muted); font-size: 13px; align-self: center; }
+.tt-multiselect { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.tt-description, .tt-new-comment { width: 100%; }
+.tt-invalid { border-color: var(--text-error); }
+.tt-errors { color: var(--text-error); margin-bottom: 8px; }
+
+.tt-comment { border-top: 1px solid var(--background-modifier-border); padding: 8px 0; }
+.tt-comment-head { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
+.tt-comment-time { color: var(--text-muted); flex: 1; }
+.tt-comment-body { white-space: pre-wrap; margin-top: 4px; }
+.tt-icon-btn { background: transparent; border: none; cursor: pointer; color: var(--text-muted); }
+.tt-icon-btn:hover { color: var(--text-normal); }
+
+@media (max-width: 700px) {
+  .task-tracker-view .tt-root { flex-direction: column; }
+  .tt-sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--background-modifier-border); }
+}
