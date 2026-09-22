@@ -1,5 +1,4 @@
 import { addComment, deleteComment, editComment, setDescription } from '../model/edit';
-import { splitFrontmatter } from '../model/parse';
 import type { TaskTrackerSettings } from '../settings/types';
 import type { VaultAdapter } from './vault';
 
@@ -24,7 +23,13 @@ function isEmptyValue(v: unknown): boolean {
   return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 }
 
-/** YAML scalar rendering for the small set of shapes a field value can take. */
+/**
+ * YAML scalar rendering for `createTask`'s hand-built initial frontmatter
+ * block. This is the one place a field value still has to be turned into
+ * YAML text by hand: the file doesn't exist yet, so there's nothing for
+ * `VaultAdapter#processFrontmatter` to mutate. Every other write goes
+ * through `processFrontmatter`, which serializes correctly on its own.
+ */
 function yamlValue(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(String).join(', ')}]`;
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
@@ -32,23 +37,9 @@ function yamlValue(v: unknown): string {
   return /[:#]|^\s|\s$/.test(s) ? JSON.stringify(s) : s;
 }
 
-/** Rewrite one key in a frontmatter block. Empty value removes the key. */
-function setFrontmatterKey(content: string, key: string, value: unknown): string {
-  const { frontmatter, bodyStart } = splitFrontmatter(content);
-  const lines = frontmatter.split('\n');
-  const idx = lines.findIndex((l) => l.startsWith(`${key}:`));
-
-  if (isEmptyValue(value)) {
-    if (idx === -1) return content;
-    lines.splice(idx, 1);
-  } else {
-    const line = `${key}: ${yamlValue(value)}`;
-    if (idx === -1) lines.push(line);
-    else lines[idx] = line;
-  }
-
-  const body = content.slice(bodyStart);
-  return `---\n${lines.filter((l) => l.length > 0).join('\n')}\n---${body}`;
+function applyField(fm: Record<string, unknown>, key: string, value: unknown): void {
+  if (isEmptyValue(value)) delete fm[key];
+  else fm[key] = value;
 }
 
 export class TaskWriter {
@@ -101,25 +92,42 @@ export class TaskWriter {
     return path;
   }
 
-  private async touch(path: string, transform: (content: string) => string): Promise<void> {
+  /**
+   * Rewrite the file's body (description/comments) via the surgical,
+   * offset-based `model/edit` functions, then stamp `updated` in a
+   * separate `processFrontmatter` pass. Only the second step touches
+   * frontmatter, so -- unlike the old two-pass string-surgery `touch` --
+   * there is exactly one frontmatter mutation here, not two. That matters:
+   * the old double-pass was the direct cause of Critical 2 (a second pass
+   * mis-parsing the frontmatter block the first pass had just created).
+   */
+  private async touchBody(path: string, transform: (content: string) => string): Promise<void> {
     const content = await this.vault.read(path);
-    const next = setFrontmatterKey(transform(content), 'updated', formatTimestamp(new Date()));
-    await this.vault.write(path, next);
+    await this.vault.write(path, transform(content));
+    await this.vault.processFrontmatter(path, (fm) => {
+      fm.updated = formatTimestamp(new Date());
+    });
   }
 
   async setField(path: string, key: string, value: unknown): Promise<void> {
-    await this.touch(path, (c) => setFrontmatterKey(c, key, value));
+    await this.vault.processFrontmatter(path, (fm) => {
+      applyField(fm, key, value);
+      fm.updated = formatTimestamp(new Date());
+    });
   }
 
   async setTitle(path: string, title: string): Promise<string> {
     const { tasksFolder } = this.settings();
-    await this.touch(path, (c) => setFrontmatterKey(c, 'title', title));
+    let id: string | undefined;
+    await this.vault.processFrontmatter(path, (fm) => {
+      fm.title = title;
+      fm.updated = formatTimestamp(new Date());
+      id = typeof fm.id === 'string' ? fm.id : undefined;
+    });
 
-    const content = await this.vault.read(path);
-    const idMatch = /^id:\s*(\S+)\s*$/m.exec(splitFrontmatter(content).frontmatter);
-    if (!idMatch) return path;
+    if (id === undefined) return path;
 
-    const target = `${tasksFolder}/${sanitizeFilename(`${idMatch[1]} ${title}`)}.md`;
+    const target = `${tasksFolder}/${sanitizeFilename(`${id} ${title}`)}.md`;
     if (target === path) return path;
     if (await this.vault.exists(target)) return path;
 
@@ -128,19 +136,19 @@ export class TaskWriter {
   }
 
   async setDescriptionAt(path: string, description: string): Promise<void> {
-    await this.touch(path, (c) => setDescription(c, description));
+    await this.touchBody(path, (c) => setDescription(c, description));
   }
 
   async addCommentAt(path: string, body: string, now: Date = new Date()): Promise<void> {
     const author = this.settings().authorName;
-    await this.touch(path, (c) => addComment(c, author, formatTimestamp(now), body));
+    await this.touchBody(path, (c) => addComment(c, author, formatTimestamp(now), body));
   }
 
   async editCommentAt(path: string, commentId: string, body: string): Promise<void> {
-    await this.touch(path, (c) => editComment(c, commentId, body));
+    await this.touchBody(path, (c) => editComment(c, commentId, body));
   }
 
   async deleteCommentAt(path: string, commentId: string): Promise<void> {
-    await this.touch(path, (c) => deleteComment(c, commentId));
+    await this.touchBody(path, (c) => deleteComment(c, commentId));
   }
 }

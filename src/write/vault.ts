@@ -10,4 +10,12 @@ export interface VaultAdapter {
   exists(path: string): Promise<boolean>;
   /** Vault-relative paths directly inside `folder`. */
   list(folder: string): Promise<string[]>;
+  /**
+   * Mutate the file's frontmatter as a parsed object rather than through
+   * line-based string surgery, so a YAML shape already in the file (a
+   * block sequence, a quoted scalar, ...) round-trips instead of getting
+   * corrupted. Creates a frontmatter block, preserving 100% of the existing
+   * body, when the file doesn't have one yet.
+   */
+  processFrontmatter(path: string, mutate: (fm: Record<string, unknown>) => void): Promise<void>;
 }

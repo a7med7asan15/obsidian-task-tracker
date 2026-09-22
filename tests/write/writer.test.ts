@@ -2,7 +2,140 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { TaskWriter, formatTimestamp, sanitizeFilename } from '../../src/write/writer';
 import type { VaultAdapter } from '../../src/write/vault';
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
-import { locateSections, parseComments } from '../../src/model/parse';
+import { locateSections, parseComments, splitFrontmatter } from '../../src/model/parse';
+
+// --- Minimal YAML-block-aware frontmatter (de)serialization for FakeVault ---
+//
+// This exists so FakeVault#processFrontmatter can stand in for Obsidian's
+// real `app.fileManager.processFrontMatter`, which parses the frontmatter
+// into an object, hands it to the mutator, then re-serializes the whole
+// block. It intentionally mirrors that round-trip (object in, object out,
+// whole block re-emitted) rather than doing line-based string surgery, so
+// the tests exercise the same shape of behaviour production code gets from
+// Obsidian. It supports the shapes tasks actually use: plain scalars,
+// quoted scalars, flow sequences (`[a, b]`) and block sequences
+// (`key:\n  - a\n  - b`), which is what Obsidian's own property editor (and
+// hand-editing users) produce.
+
+const FM_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}([Tt ]|$)/;
+const FM_UNSAFE_START_RE = /^[[\]{}#&*!|>'"%@`]/;
+
+function fmNeedsQuoting(s: string): boolean {
+  return (
+    s.length === 0 ||
+    /^\s/.test(s) ||
+    /\s$/.test(s) ||
+    FM_UNSAFE_START_RE.test(s) ||
+    /: |:$/.test(s) ||
+    / #/.test(s) ||
+    FM_TIMESTAMP_RE.test(s)
+  );
+}
+
+function fmScalarOut(v: unknown): string {
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  const s = String(v);
+  return fmNeedsQuoting(s) ? JSON.stringify(s) : s;
+}
+
+function fmValueOut(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(fmScalarOut).join(', ')}]`;
+  return fmScalarOut(v);
+}
+
+function fmScalarIn(raw: string): unknown {
+  const t = raw.trim();
+  if (t.startsWith('"') && t.endsWith('"')) {
+    try {
+      return JSON.parse(t);
+    } catch {
+      return t;
+    }
+  }
+  if (t.startsWith("'") && t.endsWith("'") && t.length >= 2) {
+    return t.slice(1, -1).replace(/''/g, "'");
+  }
+  return t;
+}
+
+function fmSplitFlowItems(inner: string): string[] {
+  const items: string[] = [];
+  let cur = '';
+  let quote: string | null = null;
+  for (const c of inner) {
+    if (quote) {
+      cur += c;
+      if (c === quote) quote = null;
+    } else if (c === '"' || c === "'") {
+      quote = c;
+      cur += c;
+    } else if (c === ',') {
+      items.push(cur.trim());
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  if (cur.trim() !== '') items.push(cur.trim());
+  return items;
+}
+
+/** Parse a frontmatter block's inner text (no `---` delimiters) into an object. */
+function parseFrontmatterBlock(text: string): Record<string, unknown> {
+  const fm: Record<string, unknown> = {};
+  const lines = text.split('\n');
+  let i = 0;
+  const isBlockItem = (l: string | undefined): l is string =>
+    l !== undefined && /^\s+-\s?/.test(l);
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+    const m = /^([^\s:][^:]*):\s*(.*)$/.exec(line);
+    if (!m) {
+      i++;
+      continue;
+    }
+    const key = m[1].trim();
+    const rest = m[2];
+
+    if (rest === '' && isBlockItem(lines[i + 1])) {
+      const items: unknown[] = [];
+      let j = i + 1;
+      while (isBlockItem(lines[j])) {
+        items.push(fmScalarIn(lines[j].replace(/^\s+-\s?/, '')));
+        j++;
+      }
+      fm[key] = items;
+      i = j;
+    } else if (rest.startsWith('[') && rest.endsWith(']')) {
+      const inner = rest.slice(1, -1).trim();
+      fm[key] = inner === '' ? [] : fmSplitFlowItems(inner).map(fmScalarIn);
+      i++;
+    } else if (rest === '') {
+      fm[key] = null;
+      i++;
+    } else {
+      fm[key] = fmScalarIn(rest);
+      i++;
+    }
+  }
+  return fm;
+}
+
+function serializeFrontmatterBlock(fm: Record<string, unknown>): string {
+  const lines: string[] = [];
+  for (const [k, v] of Object.entries(fm)) {
+    if (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) {
+      continue;
+    }
+    lines.push(`${k}: ${fmValueOut(v)}`);
+  }
+  return lines.join('\n');
+}
 
 class FakeVault implements VaultAdapter {
   files = new Map<string, string>();
@@ -24,6 +157,19 @@ class FakeVault implements VaultAdapter {
   async exists(p: string) { return this.files.has(p); }
   async list(folder: string) {
     return [...this.files.keys()].filter((p) => p.startsWith(`${folder}/`));
+  }
+  async processFrontmatter(p: string, mutate: (fm: Record<string, unknown>) => void) {
+    const content = await this.read(p);
+    const { frontmatter, bodyStart } = splitFrontmatter(content);
+    const hadFrontmatter = bodyStart > 0;
+    const fm = parseFrontmatterBlock(frontmatter);
+    mutate(fm);
+    const serialized = serializeFrontmatterBlock(fm);
+    const body = content.slice(bodyStart);
+    const next = hadFrontmatter
+      ? `---\n${serialized}\n---${body}`
+      : `---\n${serialized}\n---\n${body}`;
+    this.files.set(p, next);
   }
 }
 
@@ -140,6 +286,56 @@ describe('setField', () => {
     const content = await vault.read(path);
     const s = locateSections(content);
     expect(content.slice(s.descriptionStart, s.descriptionEnd).trim()).toBe('Body text.');
+  });
+});
+
+describe('frontmatter mutation safety (Critical 1 / Critical 2)', () => {
+  it('does not corrupt a block-sequence value when a different field is written', async () => {
+    const path = 'Tasks/TASK-1 X.md';
+    await vault.write(
+      path,
+      [
+        '---',
+        'id: TASK-1',
+        'title: X',
+        'labels:',
+        '  - auth',
+        '  - frontend',
+        'created: "2026-09-21T09:00:00"',
+        'updated: "2026-09-21T09:00:00"',
+        '---',
+        '',
+        '## Description',
+        '',
+        '',
+        '',
+        '## Comments',
+        '',
+      ].join('\n'),
+    );
+
+    await writer.setField(path, 'labels', ['auth', 'backend']);
+    const content = await vault.read(path);
+
+    // Orphaned continuation lines from the old block sequence would make
+    // this invalid YAML; the field must be the new flow sequence and
+    // nothing else.
+    expect(content).not.toMatch(/^\s+-\s*(auth|frontend)\s*$/m);
+    expect(content).toContain('labels: [auth, backend]');
+    // id must still be readable -- proof the frontmatter block still parses.
+    expect(content).toContain('id: TASK-1');
+  });
+
+  it('adds a frontmatter block to a frontmatter-less file without losing any body content', async () => {
+    const path = 'Tasks/loose.md';
+    const original = '# My loose note\n\nSome text.\n';
+    await vault.write(path, original);
+
+    await writer.setField(path, 'id', 'TASK-7');
+    const content = await vault.read(path);
+
+    expect(content).toContain(original);
+    expect(content).toContain('id: TASK-7');
   });
 });
 

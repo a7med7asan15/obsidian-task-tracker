@@ -40,4 +40,11 @@ export class ObsidianVaultAdapter implements VaultAdapter {
     if (!(f instanceof TFolder)) return [];
     return f.children.filter((c): c is TFile => c instanceof TFile).map((c) => c.path);
   }
+
+  async processFrontmatter(
+    path: string,
+    mutate: (fm: Record<string, unknown>) => void,
+  ): Promise<void> {
+    await this.app.fileManager.processFrontMatter(this.fileAt(path), mutate);
+  }
 }
