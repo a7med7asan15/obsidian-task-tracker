@@ -33,8 +33,6 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
       this.display();
     };
 
-    new Setting(containerEl).setName('General').setHeading();
-
     new Setting(containerEl)
       .setName('Tasks folder')
       .setDesc('Flat folder holding task files.')
