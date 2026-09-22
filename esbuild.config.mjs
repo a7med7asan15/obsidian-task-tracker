@@ -12,7 +12,7 @@ const copyToVault = {
     build.onEnd(() => {
       const vault = process.env.VAULT_PATH;
       if (!vault) return;
-      const dest = path.join(vault, '.obsidian', 'plugins', 'obsidian-task-tracker');
+      const dest = path.join(vault, '.obsidian', 'plugins', 'task-tracker');
       fs.mkdirSync(dest, { recursive: true });
       for (const f of ['main.js', 'manifest.json', 'styles.css']) {
         if (fs.existsSync(f)) fs.copyFileSync(f, path.join(dest, f));
