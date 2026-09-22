@@ -57,6 +57,28 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
         this.debouncedSave();
       }));
 
+    new Setting(containerEl).setName('Projects').setHeading();
+
+    new Setting(containerEl)
+      .setName('Create project')
+      .setDesc('Projects give their tasks a shared ID prefix, so tasks number per project.')
+      .addButton((b) => b.setButtonText('Create project').setCta()
+        .onClick(() => this.plugin.openCreateProjectModal()));
+
+    for (const p of s.projects) {
+      new Setting(containerEl)
+        .setName(p.name)
+        .setDesc(`Task IDs start with ${p.idPrefix}-`)
+        .addText((t) => t.setValue(p.idPrefix).onChange((v) => {
+          p.idPrefix = v.trim().toUpperCase() || p.idPrefix;
+          this.debouncedSave();
+        }))
+        .addButton((b) => b.setButtonText('Delete').setWarning().onClick(async () => {
+          s.projects = s.projects.filter((x) => x !== p);
+          await this.plugin.saveSettings();
+        }));
+    }
+
     new Setting(containerEl).setName('Status and dates').setHeading();
 
     new Setting(containerEl)

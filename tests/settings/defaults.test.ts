@@ -13,6 +13,10 @@ describe('DEFAULT_SETTINGS', () => {
   it('marks Done as a done status', () => {
     expect(DEFAULT_SETTINGS.doneStatuses).toContain('Done');
   });
+
+  it('starts with no projects', () => {
+    expect(DEFAULT_SETTINGS.projects).toEqual([]);
+  });
 });
 
 describe('mergeSettings', () => {
@@ -43,5 +47,15 @@ describe('mergeSettings', () => {
 
   it('falls back to the default schema when the saved one is empty', () => {
     expect(mergeSettings({ schema: [] }).schema).toEqual(DEFAULT_SETTINGS.schema);
+  });
+
+  it('keeps valid saved projects', () => {
+    const merged = mergeSettings({ projects: [{ name: 'Alpha', idPrefix: 'ALP' }] });
+    expect(merged.projects).toEqual([{ name: 'Alpha', idPrefix: 'ALP' }]);
+  });
+
+  it('drops malformed project entries and non-array values', () => {
+    expect(mergeSettings({ projects: 'nope' }).projects).toEqual([]);
+    expect(mergeSettings({ projects: [{ name: '', idPrefix: 'X' }, null, 3] }).projects).toEqual([]);
   });
 });

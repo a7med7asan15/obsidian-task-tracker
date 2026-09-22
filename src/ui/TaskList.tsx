@@ -11,16 +11,30 @@ interface Props {
   onSelect: (path: string) => void;
 }
 
-function badgeValues(task: Task, schema: FieldDef[]): { key: string; text: string }[] {
+interface RowBadge { key: string; text: string; }
+
+/** Status first, then priority, then the rest — Jira's row ordering. */
+function badgeValues(task: Task, schema: FieldDef[]): RowBadge[] {
+  const rank = (f: FieldDef): number =>
+    f.key === 'status' ? 0 : f.key === 'priority' ? 1 : 2;
   return schema
     .filter((f) => f.showInList)
+    .sort((a, b) => rank(a) - rank(b))
     .map((f) => {
       const raw = task.fields[f.key];
       if (raw === null || raw === undefined || raw === '') return null;
-      const text = Array.isArray(raw) ? raw.join(', ') : String(raw);
+      let text: string;
+      if (Array.isArray(raw)) text = raw.join(', ');
+      else if (typeof raw === 'string') text = raw;
+      else if (typeof raw === 'number' || typeof raw === 'boolean') text = String(raw);
+      else return null;
       return { key: f.key, text };
     })
-    .filter((b): b is { key: string; text: string } => b !== null);
+    .filter((b): b is RowBadge => b !== null);
+}
+
+function statusClass(text: string): string {
+  return `tt-status-${text.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
 export function TaskList({ groups, schema, dueFieldKey, selectedPath, onSelect }: Props) {
@@ -58,7 +72,12 @@ export function TaskList({ groups, schema, dueFieldKey, selectedPath, onSelect }
                 </div>
                 <div class="tt-row-badges">
                   {badgeValues(task, schema).map((b) => (
-                    <span class="tt-badge" key={b.key}>{b.text}</span>
+                    <span
+                      class={`tt-badge${b.key === 'status' ? ` ${statusClass(b.text)}` : ''}`}
+                      key={b.key}
+                    >
+                      {b.text}
+                    </span>
                   ))}
                   {badge && <span class={`tt-badge tt-due-${badge.tone}`}>{badge.text}</span>}
                 </div>

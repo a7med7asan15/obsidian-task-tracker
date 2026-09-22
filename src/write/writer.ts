@@ -84,8 +84,13 @@ export class TaskWriter {
     private settings: () => TaskTrackerSettings,
   ) {}
 
-  nextId(existingIds: string[]): string {
-    const prefix = this.settings().idPrefix;
+  /**
+   * Next free ID under `prefix`. When omitted, the default settings
+   * `idPrefix` is used. Each project supplies its own prefix so its tasks
+   * number independently (PROJ-1, PROJ-2, ... never collides with TASK-N).
+   */
+  nextId(existingIds: string[], prefixOverride?: string): string {
+    const prefix = prefixOverride ?? this.settings().idPrefix;
     const re = new RegExp(`^${escapeRegExp(prefix)}-(\\d+)$`);
     let max = 0;
     for (const id of existingIds) {
@@ -109,9 +114,10 @@ export class TaskWriter {
     title: string,
     fields: Record<string, unknown>,
     existingIds: string[],
+    idPrefix?: string,
   ): Promise<string> {
     const { tasksFolder } = this.settings();
-    const id = this.nextId(existingIds);
+    const id = this.nextId(existingIds, idPrefix);
     const now = formatTimestamp(new Date());
 
     const fm = [`id: ${id}`, `title: ${yamlValue(title)}`];

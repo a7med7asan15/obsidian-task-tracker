@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Task } from '../model/types';
+import type { Comment, Task } from '../model/types';
 import type { FieldDef } from '../schema/types';
 import { FieldWidget } from './FieldWidget';
 import { dueBadge } from './dates';
@@ -18,6 +18,70 @@ interface Props {
   onEditComment: (id: string, body: string) => void;
   onDeleteComment: (id: string) => void;
   onOpenAsNote: () => void;
+}
+
+/** Initials for the avatar circle; falls back to the first non-space char. */
+function initials(author: string): string {
+  const parts = author.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function formatCommentTime(ts: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(ts);
+  if (!m) return ts.replace('T', ' ');
+  const [, y, mo, d, hh, mm] = m;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[Number(mo) - 1] ?? mo;
+  return `${Number(d)} ${month} ${y}, ${hh}:${mm}`;
+}
+
+function CommentItem({
+  comment, isEditing, draft, onEditDraft, onStartEdit, onCancelEdit, onSave, onDelete,
+}: {
+  comment: Comment;
+  isEditing: boolean;
+  draft: string;
+  onEditDraft: (v: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div class={`tt-comment${isEditing ? ' is-editing' : ''}`}>
+      <div class="tt-avatar" aria-hidden="true">{initials(comment.author)}</div>
+      <div class="tt-comment-main">
+        <div class="tt-comment-head">
+          <span class="tt-comment-author">{comment.author}</span>
+          <span class="tt-comment-time" title={comment.timestamp}>
+            {formatCommentTime(comment.timestamp)}
+          </span>
+          <span class="tt-comment-actions">
+            <button class="tt-icon-btn" onClick={onStartEdit}>Edit</button>
+            <button class="tt-icon-btn tt-danger" onClick={onDelete}>Delete</button>
+          </span>
+        </div>
+        {isEditing ? (
+          <div class="tt-comment-editor">
+            <textarea
+              rows={3}
+              value={draft}
+              onInput={(e) => onEditDraft((e.target as HTMLTextAreaElement).value)}
+            />
+            <div class="tt-comment-editor-actions">
+              <button class="mod-cta" onClick={onSave}>Save</button>
+              <button onClick={onCancelEdit}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div class="tt-comment-body">{comment.body}</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function TaskDetail(props: Props) {
@@ -39,6 +103,8 @@ export function TaskDetail(props: Props) {
     dueFieldKey ? ((task.fields[dueFieldKey] as string | undefined) ?? null) : null,
     new Date(),
   );
+  const statusDef = schema.find((f) => f.key === 'status');
+  const statusValue = typeof task.fields.status === 'string' ? task.fields.status : null;
 
   return (
     <div class="tt-detail-inner">
@@ -58,87 +124,100 @@ export function TaskDetail(props: Props) {
       )}
 
       <div class="tt-detail-head">
-        <span class="tt-id">{task.id ?? 'no id'}</span>
+        <span class="tt-id tt-id-lg">{task.id ?? 'no id'}</span>
+        {statusValue && (
+          <span class={`tt-status-pill tt-status-${statusValue.toLowerCase().replace(/\s+/g, '-')}`}>
+            {statusValue}
+          </span>
+        )}
         {badge && <span class={`tt-badge tt-due-${badge.tone}`}>{badge.text}</span>}
-        <button class="tt-icon-btn" onClick={props.onOpenAsNote}>Open as note</button>
+        <button class="tt-icon-btn tt-open-note" onClick={props.onOpenAsNote}>
+          Open as note
+        </button>
       </div>
 
       <input
         class="tt-title-input"
         value={title}
+        placeholder="Issue title"
         onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
         onBlur={() => { if (title.trim() && title !== task.title) props.onSetTitle(title.trim()); }}
       />
 
-      <div class="tt-fields">
-        {schema.map((def) => (
-          <div class="tt-field" key={def.key}>
-            <label class="tt-field-label">{def.label}</label>
-            <div class="tt-field-input">
-              <FieldWidget
-                def={def}
-                value={task.fields[def.key] ?? null}
-                onCommit={(v) => props.onSetField(def.key, v)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <h3>Description</h3>
-      <textarea
-        class="tt-description"
-        rows={8}
-        value={description}
-        onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-        onBlur={() => { if (description !== task.description) props.onSetDescription(description); }}
-      />
-
-      <h3>Comments</h3>
-      <div class="tt-comments">
-        {task.comments.map((c) => (
-          <div class="tt-comment" key={c.id}>
-            <div class="tt-comment-head">
-              <strong>{c.author}</strong>
-              <span class="tt-comment-time">{c.timestamp.replace('T', ' ')}</span>
-              <button class="tt-icon-btn" onClick={() => { setEditingId(c.id); setEditingBody(c.body); }}>
-                Edit
-              </button>
-              <button class="tt-icon-btn" onClick={() => props.onDeleteComment(c.id)}>Delete</button>
-            </div>
-            {editingId === c.id ? (
-              <div>
-                <textarea
-                  rows={3}
-                  value={editingBody}
-                  onInput={(e) => setEditingBody((e.target as HTMLTextAreaElement).value)}
+      <section class="tt-section">
+        <h3 class="tt-section-title">Details</h3>
+        <div class="tt-fields">
+          {schema.map((def) => (
+            <div class="tt-field" key={def.key}>
+              <label class="tt-field-label">{def.label}</label>
+              <div class="tt-field-input">
+                <FieldWidget
+                  def={def}
+                  value={task.fields[def.key] ?? null}
+                  onCommit={(v) => props.onSetField(def.key, v)}
                 />
-                <button onClick={() => { props.onEditComment(c.id, editingBody); setEditingId(null); }}>
-                  Save
-                </button>
-                <button onClick={() => setEditingId(null)}>Cancel</button>
               </div>
-            ) : (
-              <div class="tt-comment-body">{c.body}</div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+        {statusDef && statusValue === null && (
+          <div class="tt-field-hint">No status set yet.</div>
+        )}
+      </section>
 
-      <textarea
-        class="tt-new-comment"
-        rows={3}
-        placeholder="Add a comment…"
-        value={newComment}
-        onInput={(e) => setNewComment((e.target as HTMLTextAreaElement).value)}
-      />
-      <button
-        class="mod-cta"
-        disabled={newComment.trim().length === 0}
-        onClick={() => { props.onAddComment(newComment.trim()); setNewComment(''); }}
-      >
-        Comment
-      </button>
+      <section class="tt-section">
+        <h3 class="tt-section-title">Description</h3>
+        <textarea
+          class="tt-description"
+          rows={8}
+          placeholder="Add a description…"
+          value={description}
+          onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+          onBlur={() => { if (description !== task.description) props.onSetDescription(description); }}
+        />
+      </section>
+
+      <section class="tt-section">
+        <h3 class="tt-section-title">
+          Comments
+          <span class="tt-count">{task.comments.length}</span>
+        </h3>
+        <div class="tt-comments">
+          {task.comments.length === 0 && (
+            <div class="tt-comments-empty">No comments yet. Start the conversation below.</div>
+          )}
+          {task.comments.map((c) => (
+            <CommentItem
+              key={c.id}
+              comment={c}
+              isEditing={editingId === c.id}
+              draft={editingBody}
+              onEditDraft={setEditingBody}
+              onStartEdit={() => { setEditingId(c.id); setEditingBody(c.body); }}
+              onCancelEdit={() => setEditingId(null)}
+              onSave={() => { props.onEditComment(c.id, editingBody); setEditingId(null); }}
+              onDelete={() => props.onDeleteComment(c.id)}
+            />
+          ))}
+        </div>
+
+        <div class="tt-comment-composer">
+          <textarea
+            class="tt-new-comment"
+            rows={3}
+            placeholder="Add a comment…"
+            value={newComment}
+            onInput={(e) => setNewComment((e.target as HTMLTextAreaElement).value)}
+          />
+          <button
+            class="mod-cta tt-comment-submit"
+            disabled={newComment.trim().length === 0}
+            onClick={() => { props.onAddComment(newComment.trim()); setNewComment(''); }}
+          >
+            Comment
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

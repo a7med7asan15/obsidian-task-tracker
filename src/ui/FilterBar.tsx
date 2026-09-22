@@ -7,6 +7,7 @@ interface Props {
   onQuery: (patch: Partial<Query>) => void;
   onToggleFilter: (key: string, value: string) => void;
   onCreate: () => void;
+  onCreateProject: () => void;
 }
 
 /** Fields whose values form a closed set are the ones worth offering as chips. */
@@ -14,7 +15,9 @@ function filterableFields(schema: FieldDef[]): FieldDef[] {
   return schema.filter((f) => f.type === 'select' || f.type === 'multiselect');
 }
 
-export function FilterBar({ query, schema, onQuery, onToggleFilter, onCreate }: Props) {
+export function FilterBar({
+  query, schema, onQuery, onToggleFilter, onCreate, onCreateProject,
+}: Props) {
   const sortOptions = [
     { key: 'updated', label: 'Updated' },
     { key: 'created', label: 'Created' },
@@ -35,6 +38,7 @@ export function FilterBar({ query, schema, onQuery, onToggleFilter, onCreate }: 
           onInput={(e) => onQuery({ search: (e.target as HTMLInputElement).value })}
         />
         <button class="mod-cta tt-create" onClick={onCreate}>Create issue</button>
+        <button class="tt-create tt-create-secondary" onClick={onCreateProject}>Create project</button>
       </div>
 
       <div class="tt-filter-row">

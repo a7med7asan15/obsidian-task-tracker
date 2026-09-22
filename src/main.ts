@@ -6,6 +6,8 @@ import { ObsidianVaultAdapter } from './write/obsidianVault';
 import { TaskWriter } from './write/writer';
 import { TaskTrackerView, VIEW_TYPE_TASK_TRACKER } from './ui/TaskTrackerView';
 import { CreateTaskModal } from './ui/CreateTaskModal';
+import { CreateProjectModal } from './ui/CreateProjectModal';
+import { ensureProjectField, prefixForProject } from './settings/projects';
 import { TaskTrackerSettingTab } from './settings/SettingsTab';
 
 export default class TaskTrackerPlugin extends Plugin {
@@ -40,7 +42,14 @@ export default class TaskTrackerPlugin extends Plugin {
     this.registerView(
       VIEW_TYPE_TASK_TRACKER,
       (leaf: WorkspaceLeaf) =>
-        new TaskTrackerView(leaf, this.index, this.writer, () => this.settings, () => this.openCreateModal()),
+        new TaskTrackerView(
+          leaf,
+          this.index,
+          this.writer,
+          () => this.settings,
+          () => this.openCreateModal(),
+          () => this.openCreateProjectModal(),
+        ),
     );
 
     this.addRibbonIcon('check-square', 'Open Task Tracker', () => { void this.activateView(); });
@@ -53,6 +62,11 @@ export default class TaskTrackerPlugin extends Plugin {
       id: 'create-task',
       name: 'Create issue',
       callback: () => this.openCreateModal(),
+    });
+    this.addCommand({
+      id: 'create-project',
+      name: 'Create project',
+      callback: () => this.openCreateProjectModal(),
     });
 
     this.addSettingTab(new TaskTrackerSettingTab(this.app, this));
@@ -89,10 +103,11 @@ export default class TaskTrackerPlugin extends Plugin {
   }
 
   openCreateModal(): void {
-    new CreateTaskModal(this.app, this.settings, (title, fields) => {
+    new CreateTaskModal(this.app, this.settings, ({ title, fields, project }) => {
       void (async () => {
         try {
-          const path = await this.writer.createTask(title, fields, this.index.ids());
+          const prefix = prefixForProject(this.settings, project);
+          const path = await this.writer.createTask(title, fields, this.index.ids(), prefix);
           await this.index.updateOne(path);
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TASK_TRACKER);
           for (const leaf of leaves) {
@@ -102,6 +117,17 @@ export default class TaskTrackerPlugin extends Plugin {
         } catch (e) {
           new Notice(`Task Tracker: ${e instanceof Error ? e.message : String(e)}`);
         }
+      })();
+    }).open();
+  }
+
+  openCreateProjectModal(): void {
+    new CreateProjectModal(this.app, this.settings, (name, idPrefix) => {
+      void (async () => {
+        this.settings.projects = [...this.settings.projects, { name, idPrefix }];
+        this.settings.schema = ensureProjectField(this.settings.schema, this.settings.projects);
+        await this.saveSettings();
+        new Notice(`Project "${name}" created. Tasks will get ${idPrefix}-1, ${idPrefix}-2, …`);
       })();
     }).open();
   }

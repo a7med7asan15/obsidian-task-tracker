@@ -224,6 +224,15 @@ describe('nextId', () => {
     // 'AxB-5' would falsely match if '.' were left as a regex wildcard.
     expect(w.nextId(['AxB-5', 'A.B-2'])).toBe('A.B-3');
   });
+
+  it('honours a project-specific prefix override', () => {
+    expect(writer.nextId([], 'PROJ')).toBe('PROJ-1');
+    expect(writer.nextId(['PROJ-2', 'TASK-9'], 'PROJ')).toBe('PROJ-3');
+  });
+
+  it('falls back to the settings prefix when no override is given', () => {
+    expect(writer.nextId(['PROJ-9'])).toBe('TASK-1');
+  });
 });
 
 describe('createTask', () => {
@@ -301,6 +310,12 @@ describe('createTask', () => {
     const fm = parseFrontmatterBlock(splitFrontmatter(content).frontmatter);
     expect(typeof fm.created).toBe('string');
     expect(typeof fm.updated).toBe('string');
+  });
+
+  it('creates the file under a project prefix when one is given', async () => {
+    const path = await writer.createTask('Ship it', {}, [], 'PROJ');
+    expect(path).toBe('Tasks/PROJ-1 Ship it.md');
+    expect(await vault.read(path)).toContain('id: PROJ-1');
   });
 });
 

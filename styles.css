@@ -1,4 +1,4 @@
-/* Task Tracker styles. Populated in Task 9. */
+/* Task Tracker styles — Jira-inspired. */
 
 .task-tracker-view .tt-root {
   display: flex;
@@ -6,70 +6,133 @@
   overflow: hidden;
 }
 
+/* ---------------------------------------------------------------- sidebar */
+
 .tt-sidebar {
-  width: 320px;
-  min-width: 240px;
+  width: 340px;
+  min-width: 260px;
   border-right: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--background-secondary);
 }
 
 .tt-list { overflow-y: auto; flex: 1; }
-.tt-detail { flex: 1; overflow-y: auto; padding: 16px 24px; }
+.tt-detail { flex: 1; overflow-y: auto; padding: 20px 32px; }
 
 .tt-group-header {
-  padding: 8px 12px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 14px 4px;
   font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
+  background: var(--background-secondary);
 }
-.tt-count { opacity: 0.6; }
+.tt-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: var(--background-modifier-border);
+  opacity: 0.8;
+}
 
+/* Jira issue-navigator row: key + summary on top, badges below. */
 .tt-row {
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--background-modifier-border);
   cursor: pointer;
+  transition: background 80ms ease;
 }
 .tt-row:hover { background: var(--background-modifier-hover); }
-.tt-row.is-selected { background: var(--background-modifier-active-hover); }
+.tt-row.is-selected {
+  background: var(--background-modifier-active-hover);
+  box-shadow: inset 3px 0 0 var(--interactive-accent);
+}
 
 .tt-row-top { display: flex; gap: 8px; align-items: baseline; }
-.tt-id { color: var(--text-muted); font-size: 11px; font-family: var(--font-monospace); }
-.tt-title { flex: 1; }
+.tt-id {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--font-monospace);
+  white-space: nowrap;
+}
+.tt-id-lg { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.tt-title { flex: 1; font-weight: 500; color: var(--text-normal); }
 .tt-warn { color: var(--text-warning); }
 
-.tt-row-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tt-row-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+/* ------------------------------------------------------------------ badges */
+
 .tt-badge {
   font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 1px 8px;
+  border-radius: 3px;
   background: var(--background-modifier-border);
   color: var(--text-muted);
 }
-.tt-due-overdue { background: var(--background-modifier-error); color: var(--text-error); }
-.tt-due-soon { background: var(--background-modifier-success); }
+.tt-due-overdue { background: var(--background-modifier-error); color: var(--text-error); font-weight: 600; }
+.tt-due-soon { background: var(--background-modifier-success); color: var(--text-normal); }
+
+/* Status pills (Jira lozenge-style). Shared by rows and the detail header. */
+.tt-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 2px 10px;
+  border-radius: 3px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.tt-badge.tt-status-backlog,
+.tt-status-pill.tt-status-backlog { background: var(--background-modifier-border); color: var(--text-muted); }
+.tt-badge.tt-status-to-do,
+.tt-status-pill.tt-status-to-do { background: var(--interactive-accent); color: var(--text-on-accent); }
+.tt-badge.tt-status-in-progress,
+.tt-status-pill.tt-status-in-progress { background: var(--color-blue); color: var(--text-on-accent); }
+.tt-badge.tt-status-in-review,
+.tt-status-pill.tt-status-in-review { background: var(--color-purple); color: var(--text-on-accent); }
+.tt-badge.tt-status-done,
+.tt-status-pill.tt-status-done { background: var(--color-green); color: var(--text-on-accent); }
 
 .tt-empty { padding: 24px 12px; color: var(--text-muted); text-align: center; }
 
+/* -------------------------------------------------------------- filter bar */
+
 .tt-filterbar {
-  padding: 8px;
+  padding: 10px;
   border-bottom: 1px solid var(--background-modifier-border);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  background: var(--background-primary);
 }
-.tt-filter-row { display: flex; gap: 6px; align-items: center; }
+.tt-filter-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .tt-search { flex: 1; min-width: 0; }
 .tt-create { white-space: nowrap; }
+.tt-create-secondary {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.tt-create-secondary:hover { color: var(--text-normal); border-color: var(--text-muted); }
 .tt-toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; }
 
 .tt-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .tt-chips-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
 .tt-chip {
   font-size: 11px;
-  padding: 1px 8px;
+  padding: 2px 10px;
   border-radius: 10px;
   background: var(--background-modifier-border);
   border: none;
@@ -77,35 +140,222 @@
 }
 .tt-chip.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
 
-.tt-detail-inner { max-width: 760px; }
-.tt-detail-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+/* ------------------------------------------------------------------ detail */
+
+.tt-detail-inner { max-width: 780px; margin: 0 auto; }
+
+.tt-detail-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  min-height: 24px;
+}
+.tt-open-note { margin-left: auto; font-size: 12px; }
+
 .tt-title-input {
   width: 100%;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
   border: 1px solid transparent;
   background: transparent;
-  padding: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: var(--text-normal);
 }
 .tt-title-input:hover { border-color: var(--background-modifier-border); }
+.tt-title-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+  background: var(--background-primary);
+}
 
-.tt-fields { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; margin: 16px 0; }
+.tt-section {
+  margin-top: 24px;
+  padding-top: 4px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.tt-section:first-of-type { border-top: none; }
+.tt-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.tt-section-title .tt-count { margin-left: 0; }
+
+.tt-fields {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 6px 16px;
+  padding: 12px 14px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+}
 .tt-field { display: contents; }
 .tt-field-label { color: var(--text-muted); font-size: 13px; align-self: center; }
-.tt-multiselect { display: flex; flex-wrap: wrap; gap: 8px; }
+.tt-field-input { min-width: 0; }
+.tt-field-input select,
+.tt-field-input input[type="text"],
+.tt-field-input input[type="date"],
+.tt-field-input input[type="number"] { width: 100%; max-width: 320px; }
+.tt-field-hint { margin-top: 6px; font-size: 12px; color: var(--text-faint); }
+.tt-multiselect { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.tt-multiselect label { display: flex; align-items: center; gap: 4px; font-size: 13px; }
 
-.tt-description, .tt-new-comment { width: 100%; }
+.tt-description, .tt-new-comment { width: 100%; resize: vertical; }
+.tt-description {
+  padding: 10px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  font-family: var(--font-normal);
+}
+.tt-description:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  background: var(--background-primary);
+}
 .tt-invalid { border-color: var(--text-error); }
 .tt-errors { color: var(--text-error); margin-bottom: 8px; }
 
-.tt-comment { border-top: 1px solid var(--background-modifier-border); padding: 8px 0; }
-.tt-comment-head { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
-.tt-comment-time { color: var(--text-muted); flex: 1; }
-.tt-comment-body { white-space: pre-wrap; margin-top: 4px; }
-.tt-icon-btn { background: transparent; border: none; cursor: pointer; color: var(--text-muted); }
-.tt-icon-btn:hover { color: var(--text-normal); }
+/* ---------------------------------------------------------------- comments */
+
+.tt-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tt-comments-empty {
+  padding: 14px 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.tt-comment {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.tt-comment:last-child { border-bottom: none; }
+
+.tt-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  user-select: none;
+}
+
+.tt-comment-main { flex: 1; min-width: 0; }
+.tt-comment-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+}
+.tt-comment-author { font-weight: 600; }
+.tt-comment-time { color: var(--text-faint); font-size: 12px; flex: 1; }
+.tt-comment-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 80ms ease; }
+.tt-comment:hover .tt-comment-actions,
+.tt-comment.is-editing .tt-comment-actions { opacity: 1; }
+
+.tt-comment-body {
+  white-space: pre-wrap;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+.tt-comment-editor { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.tt-comment-editor textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 6px;
+  background: var(--background-primary);
+}
+.tt-comment-editor-actions { display: flex; gap: 6px; }
+
+.tt-comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+}
+.tt-comment-composer:focus-within { border-color: var(--interactive-accent); }
+.tt-comment-composer .tt-new-comment {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-normal);
+}
+.tt-comment-composer .tt-new-comment:focus { outline: none; }
+.tt-comment-submit { align-self: flex-end; }
+
+.tt-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.tt-icon-btn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.tt-icon-btn.tt-danger:hover { color: var(--text-error); }
+
+/* ---------------------------------------------------------- create modals */
+
+/* The title text field in create modals was tiny — give it a full-width,
+   summary-sized input like Jira's "Summary" field. */
+.tt-modal-title-input {
+  width: 100% !important;
+  min-width: 280px;
+  font-size: 16px !important;
+  font-weight: 500;
+  padding: 8px 10px !important;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+}
+.tt-modal-title-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+.modal .tt-modal-title-input { height: auto; }
 
 @media (max-width: 700px) {
   .task-tracker-view .tt-root { flex-direction: column; }
-  .tt-sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--background-modifier-border); }
+  .tt-sidebar {
+    width: auto;
+    max-height: 45%;
+    border-right: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+  .tt-detail { padding: 16px; }
+  .tt-fields { grid-template-columns: 1fr; }
+  .tt-field { display: block; }
+  .tt-field-label { display: block; margin-bottom: 2px; }
 }

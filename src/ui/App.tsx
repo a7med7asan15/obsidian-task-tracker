@@ -17,6 +17,7 @@ export interface AppProps {
   settings: () => TaskTrackerSettings;
   openAsNote: (path: string) => void;
   onCreate: () => void;
+  onCreateProject: () => void;
 }
 
 function useRevision(index: TaskIndex, store: Store): void {
@@ -29,7 +30,9 @@ function useRevision(index: TaskIndex, store: Store): void {
   }, [index, store]);
 }
 
-export function App({ index, writer, store, settings, openAsNote, onCreate }: AppProps) {
+export function App({
+  index, writer, store, settings, openAsNote, onCreate, onCreateProject,
+}: AppProps) {
   useRevision(index, store);
   const s = settings();
   const { query, selectedPath } = store.getState();
@@ -54,6 +57,7 @@ export function App({ index, writer, store, settings, openAsNote, onCreate }: Ap
           onQuery={(patch) => store.setQuery(patch)}
           onToggleFilter={(k, v) => store.toggleFilter(k, v)}
           onCreate={onCreate}
+          onCreateProject={onCreateProject}
         />
         <TaskList
           groups={groups}
