@@ -13,6 +13,12 @@ interface Props {
   onClearFilter: (key: string) => void;
   onCreate: () => void;
   onCreateProject: () => void;
+  /** Names of every project, for the switcher. */
+  projects: string[];
+  /** Current project, or null for tasks without one. */
+  project: string | null;
+  onProject: (name: string | null) => void;
+  onProjectSettings: () => void;
 }
 
 /** Fields whose values form a closed set are the ones worth offering as filters. */
@@ -37,7 +43,8 @@ export function filterOptions(def: FieldDef, tasks: Task[]): string[] {
 }
 
 export function FilterBar({
-  query, schema, tasks, onQuery, onToggleFilter, onClearFilter, onCreate, onCreateProject,
+  query, schema, tasks, projects, project, onProject, onProjectSettings,
+  onQuery, onToggleFilter, onClearFilter, onCreate, onCreateProject,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -58,6 +65,31 @@ export function FilterBar({
   return (
     <div class="tt-filterbar">
       <div class="tt-filter-row">
+        <select
+          class="tt-project-select"
+          value={project ?? ''}
+          title="Project"
+          onChange={(e) => {
+            const v = (e.target as HTMLSelectElement).value;
+            onProject(v === '' ? null : v);
+          }}
+        >
+          <option value="">No project</option>
+          {projects.map((p) => <option value={p} key={p}>{p}</option>)}
+        </select>
+        <button
+          class="tt-icon-btn"
+          title={project === null ? 'Settings for tasks without a project' : 'Project settings'}
+          onClick={onProjectSettings}
+        >
+          ⚙
+        </button>
+        <button class="tt-create tt-create-secondary" onClick={onCreateProject} title="Create project">
+          + Project
+        </button>
+      </div>
+
+      <div class="tt-filter-row">
         <input
           class="tt-search"
           type="search"
@@ -66,9 +98,6 @@ export function FilterBar({
           onInput={(e) => onQuery({ search: (e.target as HTMLInputElement).value })}
         />
         <button class="mod-cta tt-create" onClick={onCreate} title="Create issue">+ Issue</button>
-        <button class="tt-create tt-create-secondary" onClick={onCreateProject} title="Create project">
-          + Project
-        </button>
       </div>
 
       <div class="tt-filter-row tt-filter-row-compact">

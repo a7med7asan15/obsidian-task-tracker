@@ -182,6 +182,11 @@
   color: var(--text-muted);
 }
 
+.tt-project-select { flex: 1; min-width: 0; font-weight: 600; }
+.tt-project-warnings { padding: 6px 10px; margin: 0; font-size: 12px; border-bottom: 1px solid var(--background-modifier-border); }
+.tt-link { cursor: pointer; text-decoration: underline; }
+.tt-field-readonly { align-self: center; font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+
 /* ---------------------------------------------------------- multi picker */
 
 .tt-picker { position: relative; display: inline-block; max-width: 100%; }

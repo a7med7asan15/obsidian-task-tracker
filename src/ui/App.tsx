@@ -6,6 +6,8 @@ import type { TaskTrackerSettings } from '../settings/types';
 import { applyQuery } from '../query/apply';
 import { sortedSchema } from '../schema/validate';
 import { Store } from './store';
+import type { ProjectRegistry } from '../settings/projectRegistry';
+import { parentOf } from '../settings/projectFile';
 import { TaskList } from './TaskList';
 import { FilterBar } from './FilterBar';
 import { TaskDetail } from './TaskDetail';
@@ -13,21 +15,22 @@ import { TaskDetail } from './TaskDetail';
 export interface AppProps {
   index: TaskIndex;
   writer: TaskWriter;
+  registry: ProjectRegistry;
   store: Store;
   settings: () => TaskTrackerSettings;
   openAsNote: (path: string) => void;
-  onCreate: () => void;
+  onCreate: (project: string | null) => void;
   onCreateProject: () => void;
+  onProjectSettings: (project: string | null) => void;
 }
 
-function useRevision(index: TaskIndex, store: Store): void {
+function useRevision(index: TaskIndex, store: Store, registry: ProjectRegistry): void {
   const [, setRev] = useState(0);
   useEffect(() => {
     const bump = () => setRev((r) => r + 1);
-    const offIndex = index.onChange(bump);
-    const offStore = store.subscribe(bump);
-    return () => { offIndex(); offStore(); };
-  }, [index, store]);
+    const offs = [index.onChange(bump), store.subscribe(bump), registry.onChange(bump)];
+    return () => { for (const off of offs) off(); };
+  }, [index, store, registry]);
 }
 
 const WIDTH_KEY = 'task-tracker-list-width';
@@ -63,14 +66,21 @@ function useWidth(el: { current: HTMLElement | null }): number {
 }
 
 export function App({
-  index, writer, store, settings, openAsNote, onCreate, onCreateProject,
+  index, writer, registry, store, openAsNote, onCreate, onCreateProject, onProjectSettings,
 }: AppProps) {
-  useRevision(index, store);
-  const s = settings();
-  const { query, selectedPath } = store.getState();
-  const schema = sortedSchema(s.schema);
-  const groups = applyQuery(index.all(), query, schema, s.doneStatuses, s.statusFieldKey);
+  useRevision(index, store, registry);
+  const { query, selectedPath, project: wanted } = store.getState();
+  // A saved project whose file is gone (or not indexed yet) shows as "No project"
+  // without forgetting the choice.
+  const current = wanted !== null && registry.get(wanted) ? wanted : null;
+  const scope = registry.scopeFor(current);
+  const schema = sortedSchema(scope.schema);
+  const scopeTasks = index.all().filter((t) => parentOf(t.path) === scope.tasksFolder);
+  const groups = applyQuery(scopeTasks, query, schema, scope.doneStatuses, scope.statusFieldKey);
   const selected = selectedPath === null ? undefined : index.get(selectedPath);
+  const detailScope = selected ? registry.scopeForPath(selected.path) : scope;
+  const warnings = registry.warningsFor(current);
+  const projectNames = [...new Set(registry.all().map((p) => p.name ?? ''))];
 
   const root = useRef<HTMLDivElement>(null);
   const rootWidth = useWidth(root);
@@ -116,17 +126,30 @@ export function App({
         <FilterBar
           query={query}
           schema={schema}
-          tasks={index.all()}
+          tasks={scopeTasks}
+          projects={projectNames}
+          project={current}
+          onProject={(name) => store.setProject(name, registry.scopeFor(name).schema.map((f) => f.key))}
+          onProjectSettings={() => onProjectSettings(current)}
           onQuery={(patch) => store.setQuery(patch)}
           onToggleFilter={(k, v) => store.toggleFilter(k, v)}
           onClearFilter={(k) => store.clearFilter(k)}
-          onCreate={onCreate}
+          onCreate={() => onCreate(current)}
           onCreateProject={onCreateProject}
         />
+        {warnings.length > 0 && (
+          <div class="tt-errors tt-project-warnings">
+            {warnings.map((w) => (
+              <div key={`${w.filePath}:${w.message}`}>
+                ⚠ <a class="tt-link" onClick={() => openAsNote(w.filePath)}>{w.filePath}</a>: {w.message}
+              </div>
+            ))}
+          </div>
+        )}
         <TaskList
           groups={groups}
           schema={schema}
-          dueFieldKey={s.dueFieldKey}
+          dueFieldKey={scope.dueFieldKey}
           selectedPath={selectedPath}
           onSelect={(p) => { store.select(p); void index.loadBody(p); }}
         />
@@ -150,11 +173,12 @@ export function App({
         ) : (
           <TaskDetail
             task={selected}
-            schema={schema}
-            dueFieldKey={s.dueFieldKey}
+            schema={sortedSchema(detailScope.schema)}
+            dueFieldKey={detailScope.dueFieldKey}
+            statusFieldKey={detailScope.statusFieldKey}
             duplicateId={selected.id !== null && index.duplicateIds().has(selected.id)}
             onAssignId={() => guard(async () => {
-              await writer.setField(selected.path, 'id', writer.nextId(index.ids()));
+              await writer.setField(selected.path, 'id', writer.nextId(index.ids(), detailScope.idPrefix));
               await index.loadBody(selected.path);
             })}
             onSetField={(k, v) => guard(async () => {

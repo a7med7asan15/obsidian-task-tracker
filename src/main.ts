@@ -55,15 +55,15 @@ export default class TaskTrackerPlugin extends Plugin {
 
     this.registerView(
       VIEW_TYPE_TASK_TRACKER,
-      (leaf: WorkspaceLeaf) =>
-        new TaskTrackerView(
-          leaf,
-          this.index,
-          this.writer,
-          () => this.settings,
-          () => this.openCreateModal(),
-          () => this.openCreateProjectModal(),
-        ),
+      (leaf: WorkspaceLeaf) => new TaskTrackerView(leaf, {
+        index: this.index,
+        writer: this.writer,
+        registry: this.registry,
+        settings: () => this.settings,
+        onCreate: (project) => this.openCreateModal(project),
+        onCreateProject: () => this.openCreateProjectModal(),
+        onProjectSettings: (project) => this.openProjectSettings(project),
+      }),
     );
 
     this.addRibbonIcon('check-square', 'Open Task Tracker', () => { void this.activateView(); });

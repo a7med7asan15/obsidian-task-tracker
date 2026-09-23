@@ -3,11 +3,13 @@ import type { Comment, Task } from '../model/types';
 import type { FieldDef } from '../schema/types';
 import { FieldWidget } from './FieldWidget';
 import { dueBadge } from './dates';
+import { PROJECT_KEY } from '../settings/projects';
 
 interface Props {
   task: Task;
   schema: FieldDef[];
   dueFieldKey: string | null;
+  statusFieldKey: string;
   /** True when another file claims the same id. */
   duplicateId: boolean;
   onAssignId: () => void;
@@ -26,6 +28,14 @@ function initials(author: string): string {
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Read-only text for a frontmatter value of any shape. */
+function showValue(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(showValue).join(', ');
+  return JSON.stringify(v) ?? '';
 }
 
 function formatCommentTime(ts: string): string {
@@ -125,8 +135,13 @@ export function TaskDetail(props: Props) {
     dueFieldKey ? ((task.fields[dueFieldKey] as string | undefined) ?? null) : null,
     new Date(),
   );
-  const statusDef = schema.find((f) => f.key === 'status');
-  const statusValue = typeof task.fields.status === 'string' ? task.fields.status : null;
+  const statusDef = schema.find((f) => f.key === props.statusFieldKey);
+  const rawStatus = task.fields[props.statusFieldKey];
+  const statusValue = typeof rawStatus === 'string' ? rawStatus : null;
+  // Values for fields this project doesn't define: shown, never dropped silently.
+  const known = new Set([PROJECT_KEY, ...schema.map((f) => f.key)]);
+  const others = Object.entries(task.fields)
+    .filter(([k, v]) => !known.has(k) && v !== null && v !== undefined && v !== '');
 
   return (
     <div class="tt-detail-inner">
@@ -192,6 +207,22 @@ export function TaskDetail(props: Props) {
           <div class="tt-field-hint">No status set yet.</div>
         )}
       </section>
+
+      {others.length > 0 && (
+        <section class="tt-section">
+          <h3 class="tt-section-title">Other properties</h3>
+          <div class="tt-fields">
+            {others.map(([k, v]) => (
+              <div class="tt-field" key={k}>
+                <label class="tt-field-label">{k}</label>
+                <div class="tt-field-input tt-field-readonly">
+                  {showValue(v)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section class="tt-section">
         <h3 class="tt-section-title">Description</h3>
