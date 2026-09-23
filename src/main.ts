@@ -29,11 +29,7 @@ export default class TaskTrackerPlugin extends Plugin {
         this.app.vault.getMarkdownFiles()
           .filter((f) => f.parent?.path === folder)
           .map((f) => f.path),
-      frontmatterOf: (path) => {
-        const file = this.app.vault.getAbstractFileByPath(path);
-        if (!(file instanceof TFile)) return null;
-        return this.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
-      },
+      frontmatterOf: (path) => this.frontmatterOf(path),
       read: async (path) => {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (!(file instanceof TFile)) throw new Error(`No such file: ${path}`);
@@ -50,7 +46,15 @@ export default class TaskTrackerPlugin extends Plugin {
     );
     this.index = new TaskIndex(source, () => this.registry.taskFolders());
     // A project appearing, moving or changing its tasks folder changes what the index scans.
-    this.registry.onChange(() => { void this.index.rebuild(); });
+    // Anything else (a field edit) only needs the views to redraw, which they do on their own;
+    // a full rebuild would also drop the task bodies the detail pane has loaded.
+    let scanned = '';
+    this.registry.onChange(() => {
+      const folders = this.registry.taskFolders().join('\n');
+      if (folders === scanned) return;
+      scanned = folders;
+      void this.index.rebuild();
+    });
     this.vaultAdapter = new ObsidianVaultAdapter(this.app);
     this.writer = new TaskWriter(this.vaultAdapter, () => this.settings);
 
@@ -105,6 +109,12 @@ export default class TaskTrackerPlugin extends Plugin {
     }));
   }
 
+  private frontmatterOf(path: string): Record<string, unknown> | null {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return null;
+    return this.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
+  }
+
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     await this.index.rebuild();
@@ -125,7 +135,11 @@ export default class TaskTrackerPlugin extends Plugin {
   /** One-time move of legacy settings.projects into Settings/project.md files. */
   private async migrateProjects(): Promise<void> {
     if (this.settings.projects === undefined) return;
-    const result = await migrateLegacyProjects(this.vaultAdapter, this.settings);
+    const result = await migrateLegacyProjects(
+      this.vaultAdapter,
+      this.settings,
+      (path) => this.frontmatterOf(path),
+    );
     if (result.failed.length > 0) {
       new Notice(
         'Task Tracker: some projects could not be moved into settings notes; '

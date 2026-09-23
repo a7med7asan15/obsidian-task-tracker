@@ -158,3 +158,23 @@ describe('noProjectScope', () => {
     expect(s.schema).toBe(DEFAULT_SETTINGS.schema);
   });
 });
+
+describe('skipped field entries', () => {
+  const fm = {
+    'tt-project': 'Alpha', idPrefix: 'ALP',
+    fields: [STATUS, { key: 'sprint', label: 'Sprint', type: 'selct', options: ['S1'] }, { key: 'due', label: 'Due', type: 'date' }],
+  };
+
+  it('are remembered with their position', () => {
+    const { project } = parseProjectFile('Alpha/Settings/project.md', fm);
+    expect(project?.skippedFields).toEqual([{ index: 1, raw: fm.fields[1] }]);
+  });
+
+  it('are written back in place on save', () => {
+    const { project } = parseProjectFile('Alpha/Settings/project.md', fm);
+    if (!project) throw new Error('expected a project');
+    const out = serializeProjectFrontmatter(project).fields as Record<string, unknown>[];
+    expect(out.map((f) => f.key)).toEqual(['status', 'sprint', 'due']);
+    expect(out[1]).toEqual(fm.fields[1]);
+  });
+});

@@ -101,16 +101,19 @@ export function parseProjectFile(path: string, fm: Record<string, unknown> | nul
 
   const warnings: string[] = [];
   const schema: FieldDef[] = [];
+  const skippedFields: { index: number; raw: unknown }[] = [];
   if (Array.isArray(fm.fields)) {
     fm.fields.forEach((raw: unknown, i: number) => {
       const parsed = parseField(raw, i);
       if (typeof parsed === 'string') {
         warnings.push(`${parsed} Skipped.`);
+        skippedFields.push({ index: i, raw });
         return;
       }
       const errors = validateFieldDef(parsed, schema);
       if (errors.length > 0) {
         warnings.push(`Field "${parsed.key}" skipped: ${errors.join(' ')}`);
+        skippedFields.push({ index: i, raw });
         return;
       }
       schema.push({ ...parsed, order: schema.length });
@@ -148,12 +151,11 @@ export function parseProjectFile(path: string, fm: Record<string, unknown> | nul
     typeof fm.tasksFolder === 'string' ? fm.tasksFolder : 'Tasks',
   );
 
-  return {
-    project: {
-      name, filePath: path, idPrefix, tasksFolder, schema, statusFieldKey, doneStatuses, dueFieldKey,
-    },
-    warnings,
+  const project: ProjectScope = {
+    name, filePath: path, idPrefix, tasksFolder, schema, statusFieldKey, doneStatuses, dueFieldKey,
   };
+  if (skippedFields.length > 0) project.skippedFields = skippedFields;
+  return { project, warnings };
 }
 
 /** The frontmatter keys this plugin owns, for writing a scope back to its file. */
@@ -166,12 +168,21 @@ export function serializeProjectFrontmatter(scope: ProjectScope): Record<string,
     statusField: scope.statusFieldKey,
     doneStatuses: [...scope.doneStatuses],
     dueField: scope.dueFieldKey,
-    fields: sortedSchema(scope.schema).map((f) => {
+    fields: withSkipped(sortedSchema(scope.schema).map((f) => {
       const out: Record<string, unknown> = { key: f.key, label: f.label, type: f.type };
       if (f.options && f.options.length > 0) out.options = [...f.options];
       if (f.required) out.required = true;
       if (f.showInList) out.showInList = true;
       return out;
-    }),
+    }), scope.skippedFields ?? []),
   };
+}
+
+/** Put entries that could not be parsed back where they were. */
+function withSkipped(fields: unknown[], skipped: { index: number; raw: unknown }[]): unknown[] {
+  const out = [...fields];
+  for (const { index, raw } of [...skipped].sort((a, b) => a.index - b.index)) {
+    out.splice(Math.min(index, out.length), 0, raw);
+  }
+  return out;
 }

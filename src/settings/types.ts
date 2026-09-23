@@ -50,4 +50,9 @@ export interface ProjectScope {
   statusFieldKey: string;
   doneStatuses: string[];
   dueFieldKey: string | null;
+  /**
+   * `fields` entries in the settings note that could not be used, with their
+   * position. Written back unchanged on save so a typo never costs the entry.
+   */
+  skippedFields?: { index: number; raw: unknown }[];
 }

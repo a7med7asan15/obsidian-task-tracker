@@ -78,9 +78,9 @@ describe('ProjectRegistry', () => {
   it('reports parse warnings for a project', () => {
     source.files.set('Alpha/Settings/project.md', project('Alpha', 'ALP', { fields: [STATUS, { key: 'x' }] }));
     registry.update('Alpha/Settings/project.md');
-    expect(registry.warningsFor('Alpha')).toEqual([
-      { filePath: 'Alpha/Settings/project.md', message: expect.stringContaining('"x"') },
-    ]);
+    const warnings = registry.warningsFor('Alpha');
+    expect(warnings.map((w) => w.filePath)).toEqual(['Alpha/Settings/project.md']);
+    expect(warnings[0].message).toContain('"x"');
   });
 
   it('reports marked-but-unusable files under "No project"', () => {
@@ -97,5 +97,13 @@ describe('ProjectRegistry', () => {
       { filePath: 'Beta/Settings/project.md', message: 'Also uses the ID prefix "ALP".' },
     ]);
     expect(registry.warningsFor('Beta')[0].filePath).toBe('Alpha/Settings/project.md');
+  });
+
+  it('does not emit when a settings file changes but its project does not', () => {
+    const cb = vi.fn();
+    registry.onChange(cb);
+    source.files.set('Alpha/Settings/project.md', project('Alpha', 'ALP'));
+    expect(registry.update('Alpha/Settings/project.md')).toBe(true);
+    expect(cb).not.toHaveBeenCalled();
   });
 });

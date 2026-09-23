@@ -13,7 +13,11 @@ export function orphanKeys(
 ): Map<string, string[]> {
   const orphans = new Map<string, string[]>();
   for (const task of tasks) {
-    const known = new Set([PROJECT_KEY, ...scopeForPath(task.path).schema.map((f) => f.key)]);
+    const scope = scopeForPath(task.path);
+    // A field whose entry the settings note got wrong is still that project's field.
+    const skipped = (scope.skippedFields ?? []).map(({ raw }) =>
+      raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>).key : undefined);
+    const known = new Set<unknown>([PROJECT_KEY, ...scope.schema.map((f) => f.key), ...skipped]);
     // task.fields already excludes id, title, created and updated.
     for (const key of Object.keys(task.fields)) {
       if (known.has(key)) continue;

@@ -32,4 +32,9 @@ describe('orphanKeys', () => {
       ['old', ['Alpha/Tasks/A-1.md']],
     ]));
   });
+
+  it("never calls a field orphaned just because the settings note's entry for it was skipped", () => {
+    const alpha = { ...scope(['status']), skippedFields: [{ index: 1, raw: { key: 'sprint', type: 'selct' } }] };
+    expect(orphanKeys([task('Alpha/Tasks/A-1.md', { status: 'x', sprint: 'S1' })], () => alpha)).toEqual(new Map());
+  });
 });

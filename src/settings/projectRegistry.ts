@@ -37,12 +37,15 @@ export class ProjectRegistry {
     for (const cb of this.listeners) cb();
   }
 
-  private load(path: string): void {
+  /** Re-read one file. True when what it defines (or its warnings) changed. */
+  private load(path: string): boolean {
+    const before = JSON.stringify([this.projects.get(path), this.fileWarnings.get(path)]);
     this.projects.delete(path);
     this.fileWarnings.delete(path);
     const { project, warnings } = parseProjectFile(path, this.source.frontmatterOf(path));
     if (project) this.projects.set(path, project);
     if (warnings.length > 0) this.fileWarnings.set(path, warnings);
+    return JSON.stringify([this.projects.get(path), this.fileWarnings.get(path)]) !== before;
   }
 
   rebuild(): void {
@@ -57,8 +60,8 @@ export class ProjectRegistry {
   /** Re-read one file. True when it is a settings-file path (handled here). */
   update(path: string): boolean {
     if (!isProjectFilePath(path)) return false;
-    this.load(path);
-    this.emit();
+    // Editing the note's body (or re-saving the same values) changes nothing here.
+    if (this.load(path)) this.emit();
     return true;
   }
 

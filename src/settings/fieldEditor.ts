@@ -3,16 +3,9 @@ import type { FieldDef, FieldType } from '../schema/types';
 import {
   addField, removeField, reorderField, sortedSchema, updateField, validateFieldDef,
 } from '../schema/validate';
+import { pickFieldConfig, type FieldConfig } from './fieldConfig';
 
 const TYPES: FieldType[] = ['text', 'number', 'date', 'select', 'multiselect', 'checkbox', 'person'];
-
-/** The part of a scope the field editor edits. */
-export interface FieldConfig {
-  schema: FieldDef[];
-  statusFieldKey: string;
-  doneStatuses: string[];
-  dueFieldKey: string | null;
-}
 
 /**
  * Status, due-date and field settings, shared by plugin settings ("No
@@ -26,7 +19,7 @@ export function renderFieldEditor(
   config: FieldConfig,
   onChange: (next: FieldConfig, redraw: boolean) => void,
 ): void {
-  let c = config;
+  let c = pickFieldConfig(config);
   const emit = (patch: Partial<FieldConfig>, redraw: boolean) => {
     c = { ...c, ...patch };
     onChange(c, redraw);

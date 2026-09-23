@@ -1,23 +1,7 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
-import type { FieldDef, FieldValue } from '../schema/types';
 import { sortedSchema } from '../schema/validate';
 import type { ProjectRegistry } from '../settings/projectRegistry';
-
-/** Sensible initial value for a field type so the form opens pre-filled. */
-function defaultValueFor(def: FieldDef): FieldValue {
-  switch (def.type) {
-    case 'select': {
-      const opts = def.options ?? [];
-      return opts.length > 0 ? opts[0] : null;
-    }
-    case 'multiselect':
-      return [];
-    case 'checkbox':
-      return false;
-    default:
-      return null;
-  }
-}
+import { carryFields } from './createFields';
 
 export interface CreateTaskResult {
   title: string;
@@ -92,12 +76,8 @@ export class CreateTaskModal extends Modal {
     el.empty();
     const schema = sortedSchema(this.registry.scopeFor(this.project).schema);
 
-    // Keep what was typed into fields the new project shares; default the rest.
-    const previous = this.fields;
-    this.fields = {};
-    for (const def of schema) {
-      this.fields[def.key] = def.key in previous ? previous[def.key] : defaultValueFor(def);
-    }
+    // Keep what was typed into fields the new project can hold; default the rest.
+    this.fields = carryFields(this.fields, schema);
 
     for (const def of schema) {
       const setting = new Setting(el).setName(def.label);
@@ -108,15 +88,12 @@ export class CreateTaskModal extends Modal {
         setting.addDropdown((d) => {
           d.addOption('', '—');
           for (const o of def.options ?? []) d.addOption(o, o);
-          d.setValue(typeof current === 'string' && (def.options ?? []).includes(current) ? current : '');
+          d.setValue(typeof current === 'string' ? current : '');
           d.onChange((v) => { this.fields[def.key] = v || null; });
         });
       } else if (def.type === 'multiselect') {
         const opts = def.options ?? [];
-        const selected = new Set<string>(
-          (Array.isArray(current) ? current.map(String) : []).filter((v) => opts.length === 0 || opts.includes(v)),
-        );
-        this.fields[def.key] = [...selected];
+        const selected = new Set<string>(Array.isArray(current) ? current.map(String) : []);
         if (opts.length === 0) {
           setting.addText((t) => {
             t.setPlaceholder('Comma, separated');
