@@ -1,12 +1,7 @@
 import { App, debounce, Notice, PluginSettingTab, Setting, type Debouncer } from 'obsidian';
 import type TaskTrackerPlugin from '../main';
 import { projectFolder } from './projects';
-import type { FieldDef, FieldType } from '../schema/types';
-import {
-  addField, removeField, reorderField, sortedSchema, updateField, validateFieldDef,
-} from '../schema/validate';
-
-const TYPES: FieldType[] = ['text', 'number', 'date', 'select', 'multiselect', 'checkbox', 'person'];
+import { renderFieldEditor } from './fieldEditor';
 
 export class TaskTrackerSettingTab extends PluginSettingTab {
   /**
@@ -84,122 +79,11 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
         }));
     }
 
-    new Setting(containerEl).setName('Status and dates').setHeading();
-
-    new Setting(containerEl)
-      .setName('Status field')
-      .addDropdown((d) => {
-        for (const f of s.schema.filter((f) => f.type === 'select')) d.addOption(f.key, f.label);
-        d.setValue(s.statusFieldKey).onChange(async (v) => {
-          s.statusFieldKey = v;
-          await save();
-        });
-      });
-
-    const statusField = s.schema.find((f) => f.key === s.statusFieldKey);
-    for (const opt of statusField?.options ?? []) {
-      new Setting(containerEl)
-        .setName(`"${opt}" counts as done`)
-        .addToggle((t) => t.setValue(s.doneStatuses.includes(opt)).onChange(async (on) => {
-          s.doneStatuses = on
-            ? [...new Set([...s.doneStatuses, opt])]
-            : s.doneStatuses.filter((x) => x !== opt);
-          await this.plugin.saveSettings();
-        }));
-    }
-
-    new Setting(containerEl)
-      .setName('Due date field')
-      .setDesc('Drives the due / overdue badge.')
-      .addDropdown((d) => {
-        d.addOption('', 'None');
-        for (const f of s.schema.filter((f) => f.type === 'date')) d.addOption(f.key, f.label);
-        d.setValue(s.dueFieldKey ?? '').onChange(async (v) => {
-          s.dueFieldKey = v === '' ? null : v;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl).setName('Fields').setHeading();
-
-    const sorted = sortedSchema(s.schema);
-    sorted.forEach((f, i) => {
-      new Setting(containerEl)
-        .setName(`${f.label} (${f.type})`)
-        .setDesc(`Key: ${f.key}${f.options?.length ? ` · ${f.options.join(', ')}` : ''}`)
-        .addText((t) => t.setPlaceholder('Label').setValue(f.label).onChange((v) => {
-          if (v.trim().length === 0) return;
-          s.schema = updateField(s.schema, f.key, { label: v.trim() });
-          this.debouncedSave();
-        }))
-        .addText((t) => t.setPlaceholder('Options, comma separated')
-          .setValue((f.options ?? []).join(', '))
-          .setDisabled(f.type !== 'select' && f.type !== 'multiselect')
-          .onChange((v) => {
-            const options = v.split(',').map((x) => x.trim()).filter((x) => x.length > 0);
-            s.schema = updateField(s.schema, f.key, { options });
-            this.debouncedSave();
-          }))
-        .addToggle((t) => t.setTooltip('Show on list rows')
-          .setValue(f.showInList === true)
-          .onChange(async (on) => {
-            s.schema = updateField(s.schema, f.key, { showInList: on });
-            await this.plugin.saveSettings();
-          }))
-        .addButton((b) => b.setIcon('arrow-up').setDisabled(i === 0).onClick(async () => {
-          s.schema = reorderField(s.schema, f.key, i - 1);
-          await save();
-        }))
-        .addButton((b) => b.setIcon('arrow-down').setDisabled(i === sorted.length - 1)
-          .onClick(async () => {
-            s.schema = reorderField(s.schema, f.key, i + 1);
-            await save();
-          }))
-        .addButton((b) => b.setIcon('trash').setWarning().onClick(async () => {
-          if (f.key === s.statusFieldKey) {
-            new Notice('Pick a different status field before deleting this one.');
-            return;
-          }
-          s.schema = removeField(s.schema, f.key);
-          if (s.dueFieldKey === f.key) s.dueFieldKey = null;
-          await save();
-        }));
+    renderFieldEditor(containerEl, s, (next, redraw) => {
+      Object.assign(s, next);
+      if (redraw) void save();
+      else this.debouncedSave();
     });
-
-    new Setting(containerEl).setName('Add a field').setHeading();
-
-    let newKey = '';
-    let newLabel = '';
-    let newType: FieldType = 'text';
-    let newOptions = '';
-
-    new Setting(containerEl)
-      .setName('New field')
-      .setDesc('Key becomes the frontmatter key and cannot be changed later.')
-      .addText((t) => t.setPlaceholder('key').onChange((v) => { newKey = v.trim(); }))
-      .addText((t) => t.setPlaceholder('Label').onChange((v) => { newLabel = v.trim(); }))
-      .addDropdown((d) => {
-        for (const t of TYPES) d.addOption(t, t);
-        d.setValue('text').onChange((v) => { newType = v as FieldType; });
-      })
-      .addText((t) => t.setPlaceholder('options, comma separated')
-        .onChange((v) => { newOptions = v; }))
-      .addButton((b) => b.setButtonText('Add').setCta().onClick(async () => {
-        const def: FieldDef = {
-          key: newKey,
-          label: newLabel || newKey,
-          type: newType,
-          options: newOptions.split(',').map((x) => x.trim()).filter((x) => x.length > 0),
-          order: s.schema.length,
-        };
-        const errors = validateFieldDef(def, s.schema);
-        if (errors.length > 0) {
-          new Notice(errors.join('\n'));
-          return;
-        }
-        s.schema = addField(s.schema, def);
-        await save();
-      }));
 
     new Setting(containerEl).setName('Maintenance').setHeading();
 
