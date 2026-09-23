@@ -53,18 +53,26 @@ and its text are kept, just one level down.
 ## Settings
 
 - **Tasks folder** — where tasks without a project live. Flat; subfolders are ignored.
-- **Projects** — each project has its own ID prefix and its own flat folder,
-  `<project name>/Tasks` unless you set another. A vault with two projects
+- **Projects** — each project is a folder with a settings note and a tasks
+  folder. The note's properties define the project: its name, ID prefix, and
+  its own fields, statuses, and due field. Edit them by hand, or with the ⚙
+  button next to the project picker in the tracker. A vault with two projects
   looks like:
 
   ```
-  Tasks/                 tasks with no project (TASK-1, …)
-  Project1/Tasks/        PROJ1-1, PROJ1-2, …
-  Project2/Tasks/        PROJ2-1, …
+  Tasks/                          tasks with no project (TASK-1, …)
+  Project1/Settings/project.md    tt-project: Project1, idPrefix: PROJ1, fields: …
+  Project1/Tasks/                 PROJ1-1, PROJ1-2, …
+  Project2/Settings/project.md
+  Project2/Tasks/                 PROJ2-1, …
   ```
+
+  Projects created before settings notes existed are moved into notes the
+  first time the plugin starts.
 - **ID prefix** — `TASK` produces `TASK-1`, `TASK-2`, …
 - **Your name** — the author stamped on comments.
-- **Fields** — add, rename, reorder, and delete the fields every task has. A
+- **Fields** — add, rename, reorder, and delete the fields of tasks without a
+  project (each project has its own, in its settings note). A
   field's key is its frontmatter key and is fixed once created; its label is
   free to change.
 - **Status field / done statuses** — which field drives "hide done".
