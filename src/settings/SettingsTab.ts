@@ -1,6 +1,6 @@
 import { App, debounce, Notice, PluginSettingTab, Setting, type Debouncer } from 'obsidian';
 import type TaskTrackerPlugin from '../main';
-import { projectFolder } from './projects';
+import { orphanKeys } from './orphans';
 import { renderFieldEditor } from './fieldEditor';
 
 export class TaskTrackerSettingTab extends PluginSettingTab {
@@ -31,7 +31,7 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Tasks folder')
-      .setDesc('Flat folder for tasks without a project. Project tasks live in <project>/Tasks.')
+      .setDesc('Flat folder for tasks without a project.')
       .addText((t) => t.setValue(s.tasksFolder).onChange((v) => {
         s.tasksFolder = v.trim() || 'Tasks';
         this.debouncedSave();
@@ -57,27 +57,11 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Create project')
-      .setDesc('Projects give their tasks a shared ID prefix, so tasks number per project.')
+      .setDesc('Each project keeps its ID prefix, folder and fields in <project>/Settings/project.md. Open it from the ⚙ next to the project picker.')
       .addButton((b) => b.setButtonText('Create project').setCta()
         .onClick(() => this.plugin.openCreateProjectModal()));
 
-    for (const p of s.projects ?? []) {
-      new Setting(containerEl)
-        .setName(p.name)
-        .setDesc(`Task IDs start with ${p.idPrefix}-. Tasks live in ${projectFolder(p)}/.`)
-        .addText((t) => t.setPlaceholder('Prefix').setValue(p.idPrefix).onChange((v) => {
-          p.idPrefix = v.trim().toUpperCase() || p.idPrefix;
-          this.debouncedSave();
-        }))
-        .addText((t) => t.setPlaceholder(`${p.name}/Tasks`).setValue(p.folder ?? '').onChange((v) => {
-          p.folder = v.trim() || undefined;
-          this.debouncedSave();
-        }))
-        .addButton((b) => b.setButtonText('Delete').setWarning().onClick(async () => {
-          s.projects = (s.projects ?? []).filter((x) => x !== p);
-          await this.plugin.saveSettings();
-        }));
-    }
+    new Setting(containerEl).setName('Fields for tasks without a project').setHeading();
 
     renderFieldEditor(containerEl, s, (next, redraw) => {
       Object.assign(s, next);
@@ -91,16 +75,10 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
       .setName('Clean up orphaned frontmatter keys')
       .setDesc('Find frontmatter keys on tasks that no longer match any field, and remove them.')
       .addButton((b) => b.setButtonText('Scan').onClick(async () => {
-        const known = new Set([
-          'id', 'title', 'created', 'updated', ...s.schema.map((f) => f.key),
-        ]);
-        const orphans = new Map<string, string[]>();
-        for (const task of this.plugin.index.all()) {
-          for (const key of Object.keys(task.fields)) {
-            if (known.has(key)) continue;
-            orphans.set(key, [...(orphans.get(key) ?? []), task.path]);
-          }
-        }
+        const orphans = orphanKeys(
+          this.plugin.index.all(),
+          (path) => this.plugin.registry.scopeForPath(path),
+        );
         if (orphans.size === 0) {
           new Notice('No orphaned keys found.');
           return;

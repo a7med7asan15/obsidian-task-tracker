@@ -58,4 +58,12 @@ export class TaskTrackerView extends ItemView {
   selectTask(path: string): void {
     this.store.select(path);
   }
+
+  currentProject(): string | null {
+    return null;
+  }
+
+  selectProject(_name: string | null): void {
+    // Task 7: switch the view's project.
+  }
 }

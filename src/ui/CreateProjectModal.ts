@@ -1,6 +1,5 @@
 import { App, Modal, Notice, Setting, type TextComponent } from 'obsidian';
 import { suggestPrefix } from '../settings/projects';
-import type { TaskTrackerSettings } from '../settings/types';
 
 /** Modal for creating a new project: display name + ID prefix for its tasks. */
 export class CreateProjectModal extends Modal {
@@ -12,7 +11,7 @@ export class CreateProjectModal extends Modal {
 
   constructor(
     app: App,
-    private settings: TaskTrackerSettings,
+    private existingNames: () => string[],
     private onSubmit: (name: string, idPrefix: string) => void,
   ) {
     super(app);
@@ -57,7 +56,7 @@ export class CreateProjectModal extends Modal {
           new Notice('A project name is required.');
           return;
         }
-        if ((this.settings.projects ?? []).some((p) => p.name === name)) {
+        if (this.existingNames().includes(name)) {
           new Notice(`A project named "${name}" already exists.`);
           return;
         }

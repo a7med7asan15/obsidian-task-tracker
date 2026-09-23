@@ -1,8 +1,7 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import type { FieldDef, FieldValue } from '../schema/types';
 import { sortedSchema } from '../schema/validate';
-import { PROJECT_KEY } from '../settings/projects';
-import type { TaskTrackerSettings } from '../settings/types';
+import type { ProjectRegistry } from '../settings/projectRegistry';
 
 /** Sensible initial value for a field type so the form opens pre-filled. */
 function defaultValueFor(def: FieldDef): FieldValue {
@@ -15,8 +14,6 @@ function defaultValueFor(def: FieldDef): FieldValue {
       return [];
     case 'checkbox':
       return false;
-    case 'number':
-      return null;
     default:
       return null;
   }
@@ -25,18 +22,19 @@ function defaultValueFor(def: FieldDef): FieldValue {
 export interface CreateTaskResult {
   title: string;
   fields: Record<string, unknown>;
-  /** Project name chosen for this task, or '' when none. */
-  project: string;
+  /** Project chosen for this task, or null for none. */
+  project: string | null;
 }
 
 export class CreateTaskModal extends Modal {
   private title = '';
   private fields: Record<string, unknown> = {};
-  private project = '';
+  private fieldsEl: HTMLElement | null = null;
 
   constructor(
     app: App,
-    private settings: TaskTrackerSettings,
+    private registry: ProjectRegistry,
+    private project: string | null,
     private onSubmit: (result: CreateTaskResult) => void,
   ) {
     super(app);
@@ -44,72 +42,91 @@ export class CreateTaskModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    const projects = this.settings.projects ?? [];
     contentEl.createEl('h2', { text: 'Create issue' });
 
-    const title = new Setting(contentEl).setName('Title');
-    title.addText((t) => {
+    new Setting(contentEl).setName('Title').addText((t) => {
       t.setPlaceholder('Short summary');
       t.inputEl.addClass('tt-modal-title-input');
       t.onChange((v) => { this.title = v; });
       window.setTimeout(() => t.inputEl.focus(), 0);
     });
 
-    const schema = sortedSchema(this.settings.schema);
-
-    // Pre-fill every field with a type-appropriate default.
-    for (const def of schema) {
-      this.fields[def.key] = defaultValueFor(def);
-    }
-
-    // Project picker: choosing one stamps `project` and drives the ID prefix.
+    const projects = this.registry.all();
+    if (this.project !== null && !projects.some((p) => p.name === this.project)) this.project = null;
     if (projects.length > 0) {
-      const first = projects[0];
-      this.project = first.name;
-      if (this.fields[PROJECT_KEY] === undefined || this.fields[PROJECT_KEY] === null) {
-        this.fields[PROJECT_KEY] = first.name;
-      }
       new Setting(contentEl)
         .setName('Project')
-        .setDesc(`IDs start with this project's prefix, e.g. ${first.idPrefix}-1.`)
+        .setDesc('Decides the ID prefix, the folder and which fields apply.')
         .addDropdown((d) => {
-          d.addOption('', '— no project —');
-          for (const p of projects) d.addOption(p.name, `${p.name} (${p.idPrefix})`);
-          d.setValue(this.project);
+          d.addOption('', 'No project');
+          for (const p of projects) {
+            if (p.name !== null) d.addOption(p.name, `${p.name} (${p.idPrefix})`);
+          }
+          d.setValue(this.project ?? '');
           d.onChange((v) => {
-            this.project = v;
-            this.fields[PROJECT_KEY] = v || null;
+            this.project = v === '' ? null : v;
+            this.renderFields();
           });
         });
     }
 
-    // All schema fields appear here (required ones first via sorted order);
-    // the detail pane remains available for edits after creation.
+    this.fieldsEl = contentEl.createDiv();
+    this.renderFields();
+
+    new Setting(contentEl).addButton((b) =>
+      b.setButtonText('Create').setCta().onClick(() => {
+        if (this.title.trim().length === 0) {
+          new Notice('A title is required.');
+          return;
+        }
+        this.onSubmit({ title: this.title.trim(), fields: this.fields, project: this.project });
+        this.close();
+      }),
+    );
+  }
+
+  /** (Re)build the field inputs for the chosen project's schema. */
+  private renderFields(): void {
+    const el = this.fieldsEl;
+    if (!el) return;
+    el.empty();
+    const schema = sortedSchema(this.registry.scopeFor(this.project).schema);
+
+    // Keep what was typed into fields the new project shares; default the rest.
+    const previous = this.fields;
+    this.fields = {};
     for (const def of schema) {
-      if (def.key === PROJECT_KEY && projects.length > 0) continue;
-      const setting = new Setting(contentEl).setName(def.label);
+      this.fields[def.key] = def.key in previous ? previous[def.key] : defaultValueFor(def);
+    }
+
+    for (const def of schema) {
+      const setting = new Setting(el).setName(def.label);
       if (def.required) setting.setDesc('Required');
+      const current = this.fields[def.key];
 
       if (def.type === 'select') {
         setting.addDropdown((d) => {
           d.addOption('', '—');
           for (const o of def.options ?? []) d.addOption(o, o);
-          const initial = (this.fields[def.key] as string | null) ?? '';
-          d.setValue(initial);
+          d.setValue(typeof current === 'string' && (def.options ?? []).includes(current) ? current : '');
           d.onChange((v) => { this.fields[def.key] = v || null; });
         });
       } else if (def.type === 'multiselect') {
-        const selected = new Set<string>(this.fields[def.key] as string[]);
         const opts = def.options ?? [];
+        const selected = new Set<string>(
+          (Array.isArray(current) ? current.map(String) : []).filter((v) => opts.length === 0 || opts.includes(v)),
+        );
+        this.fields[def.key] = [...selected];
         if (opts.length === 0) {
           setting.addText((t) => {
             t.setPlaceholder('Comma, separated');
+            t.setValue([...selected].join(', '));
             t.onChange((v) => {
               this.fields[def.key] = v.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
             });
           });
         } else if (opts.length > 8) {
-          // Long lists (components, ...) as an add-dropdown plus removable pills.
+          // Long lists (sprints, components, ...) as an add-dropdown plus removable pills.
           const pills = setting.controlEl.createDiv({ cls: 'tt-pills' });
           const redraw = () => {
             pills.empty();
@@ -150,38 +167,28 @@ export class CreateTaskModal extends Modal {
         }
       } else if (def.type === 'checkbox') {
         setting.addToggle((tg) => {
-          tg.setValue(this.fields[def.key] === true);
+          tg.setValue(current === true);
           tg.onChange((v) => { this.fields[def.key] = v; });
         });
       } else if (def.type === 'date') {
         setting.addText((t) => {
           t.inputEl.type = 'date';
+          if (typeof current === 'string') t.setValue(current);
           t.onChange((v) => { this.fields[def.key] = v || null; });
         });
       } else if (def.type === 'number') {
         setting.addText((t) => {
           t.inputEl.type = 'number';
+          if (typeof current === 'number') t.setValue(String(current));
           t.onChange((v) => { this.fields[def.key] = v === '' ? null : Number(v); });
         });
       } else {
-        setting.addText((t) => t.onChange((v) => { this.fields[def.key] = v || null; }));
+        setting.addText((t) => {
+          if (typeof current === 'string') t.setValue(current);
+          t.onChange((v) => { this.fields[def.key] = v || null; });
+        });
       }
     }
-
-    new Setting(contentEl).addButton((b) =>
-      b.setButtonText('Create').setCta().onClick(() => {
-        if (this.title.trim().length === 0) {
-          new Notice('A title is required.');
-          return;
-        }
-        this.onSubmit({
-          title: this.title.trim(),
-          fields: this.fields,
-          project: this.project,
-        });
-        this.close();
-      }),
-    );
   }
 
   onClose(): void {
