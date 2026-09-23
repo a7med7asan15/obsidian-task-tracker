@@ -7,6 +7,7 @@ import { TaskWriter, sanitizeFilename } from './write/writer';
 import { TaskTrackerView, VIEW_TYPE_TASK_TRACKER } from './ui/TaskTrackerView';
 import { CreateTaskModal } from './ui/CreateTaskModal';
 import { CreateProjectModal } from './ui/CreateProjectModal';
+import { ProjectSettingsModal } from './ui/ProjectSettingsModal';
 import { PROJECT_KEY } from './settings/projects';
 import { ProjectRegistry } from './settings/projectRegistry';
 import { noProjectScope, projectFilePath } from './settings/projectFile';
@@ -160,9 +161,7 @@ export default class TaskTrackerPlugin extends Plugin {
       setting?.openTabById(this.manifest.id);
       return;
     }
-    // Task 8 replaces this with ProjectSettingsModal.
-    const file = this.registry.get(project)?.filePath;
-    if (file) void this.app.workspace.openLinkText(file, '', true);
+    new ProjectSettingsModal(this.app, this.registry, project, this.vaultAdapter).open();
   }
 
   openCreateModal(project: string | null = this.currentProject()): void {
