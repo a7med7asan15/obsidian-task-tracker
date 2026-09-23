@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Comment, Task } from '../model/types';
 import type { FieldDef } from '../schema/types';
 import { FieldWidget } from './FieldWidget';
@@ -91,6 +91,28 @@ export function TaskDetail(props: Props) {
   const [newComment, setNewComment] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState('');
+  const titleBox = useRef<HTMLTextAreaElement>(null);
+
+  // The title wraps to show in full, so grow the box to fit its text --
+  // on every edit and whenever the pane's width changes the wrapping.
+  const fitTitle = () => {
+    const el = titleBox.current;
+    if (!el) return;
+    el.setCssProps({ height: 'auto' });
+    el.setCssProps({ height: `${el.scrollHeight}px` });
+  };
+  useLayoutEffect(fitTitle, [title]);
+  useEffect(() => {
+    if (!titleBox.current) return;
+    let lastWidth = 0;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width === lastWidth) return;
+      lastWidth = entry.contentRect.width;
+      fitTitle();
+    });
+    ro.observe(titleBox.current);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     setTitle(task.title);
@@ -136,11 +158,17 @@ export function TaskDetail(props: Props) {
         </button>
       </div>
 
-      <input
+      <textarea
+        ref={titleBox}
         class="tt-title-input"
+        rows={1}
         value={title}
         placeholder="Issue title"
-        onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
+        // Titles are one line in the file: Enter commits, pasted newlines become spaces.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur(); }
+        }}
+        onInput={(e) => setTitle((e.target as HTMLTextAreaElement).value.replace(/\s*\n\s*/g, ' '))}
         onBlur={() => { if (title.trim() && title !== task.title) props.onSetTitle(title.trim()); }}
       />
 

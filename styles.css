@@ -281,6 +281,13 @@
   padding: 4px 6px;
   border-radius: 4px;
   color: var(--text-normal);
+  /* Full title, wrapped; the list keeps its two-line clamp. */
+  display: block;
+  height: auto;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  overflow-wrap: anywhere;
 }
 .tt-title-input:hover { border-color: var(--background-modifier-border); }
 .tt-title-input:focus {

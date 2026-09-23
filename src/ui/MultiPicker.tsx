@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 interface Props {
   /** Text on the closed button, e.g. "Sprint". */
@@ -13,6 +13,8 @@ interface Props {
 
 /** Past this many options the popover gets a search box. */
 const SEARCH_THRESHOLD = 8;
+/** Gap kept between the popover and the edge of the pane it opens in. */
+const EDGE_GAP = 4;
 
 /**
  * A compact button that opens a searchable checkbox list. Used for filters
@@ -24,8 +26,27 @@ export function MultiPicker({ label, options, selected, onToggle, onClear, showV
   const [needle, setNeedle] = useState('');
   const root = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ left: number; maxWidth?: number }>({ left: 0 });
 
-  useEffect(() => { if (open) search.current?.focus(); }, [open]);
+  // The panes clip overflow, so a popover hanging past the pane's right edge
+  // would be cut off -- and focusing its search box would scroll the whole
+  // pane sideways to reveal it. Slide it left to fit inside the pane instead.
+  useLayoutEffect(() => {
+    if (!open || !root.current || !pop.current) { setPlace({ left: 0 }); return; }
+    const pane = root.current.closest('.tt-sidebar, .tt-detail, .modal') ?? root.current.ownerDocument.body;
+    const bound = pane.getBoundingClientRect();
+    const btn = root.current.getBoundingClientRect();
+    const maxWidth = bound.width - 2 * EDGE_GAP;
+    const width = Math.min(pop.current.offsetWidth, maxWidth);
+    const overflow = btn.left + width - (bound.right - EDGE_GAP);
+    setPlace({
+      left: overflow > 0 ? -Math.min(overflow, btn.left - bound.left - EDGE_GAP) : 0,
+      maxWidth,
+    });
+  }, [open]);
+
+  useEffect(() => { if (open) search.current?.focus({ preventScroll: true }); }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +89,10 @@ export function MultiPicker({ label, options, selected, onToggle, onClear, showV
         <span class="tt-picker-caret">▾</span>
       </button>
       {open && (
-        <div class="tt-picker-pop">
+        <div class="tt-picker-pop" ref={pop} style={{
+          left: `${place.left}px`,
+          maxWidth: place.maxWidth === undefined ? undefined : `${place.maxWidth}px`,
+        }}>
           {options.length > SEARCH_THRESHOLD && (
             <input
               class="tt-picker-search"
