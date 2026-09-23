@@ -4,11 +4,20 @@ import type { Query } from '../query/types';
 export interface StoreState {
   query: Query;
   selectedPath: string | null;
+  /** Project the view shows; null for tasks without a project. */
+  project: string | null;
 }
 
+/** Sort keys every task has, whatever its project's fields. */
+const BUILTIN_SORT_KEYS = ['updated', 'created', 'title', 'id'];
+
 export class Store {
-  private state: StoreState = { query: { ...EMPTY_QUERY }, selectedPath: null };
+  private state: StoreState;
   private listeners = new Set<() => void>();
+
+  constructor(project: string | null = null) {
+    this.state = { query: { ...EMPTY_QUERY }, selectedPath: null, project };
+  }
 
   getState(): StoreState {
     return this.state;
@@ -39,6 +48,26 @@ export class Store {
   clearFilter(key: string): void {
     const { [key]: _dropped, ...rest } = this.state.query.filters;
     this.setQuery({ filters: rest });
+  }
+
+  /**
+   * Switch project. Filters always reset, since values mean nothing across
+   * projects. Grouping and sort survive when the new project has the field.
+   */
+  setProject(project: string | null, fieldKeys: string[]): void {
+    const q = this.state.query;
+    const keepGroup = q.groupBy !== null && fieldKeys.includes(q.groupBy);
+    const keepSort = BUILTIN_SORT_KEYS.includes(q.sortKey) || fieldKeys.includes(q.sortKey);
+    this.set({
+      project,
+      selectedPath: null,
+      query: {
+        ...q,
+        filters: {},
+        groupBy: keepGroup ? q.groupBy : null,
+        sortKey: keepSort ? q.sortKey : EMPTY_QUERY.sortKey,
+      },
+    });
   }
 
   select(path: string | null): void {

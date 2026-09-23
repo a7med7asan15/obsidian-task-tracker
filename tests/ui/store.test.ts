@@ -7,6 +7,7 @@ describe('Store', () => {
     const s = new Store();
     expect(s.getState().query).toEqual(EMPTY_QUERY);
     expect(s.getState().selectedPath).toBeNull();
+    expect(s.getState().project).toBeNull();
   });
 
   it('patches the query without dropping other keys', () => {
@@ -50,5 +51,49 @@ describe('Store.clearFilter', () => {
     s.toggleFilter('status', 'Done');
     s.clearFilter('sprint');
     expect(s.getState().query.filters).toEqual({ status: ['Done'] });
+  });
+});
+
+describe('Store.setProject', () => {
+  it('starts on the project it was given, or none', () => {
+    expect(new Store().getState().project).toBeNull();
+    expect(new Store('Alpha').getState().project).toBe('Alpha');
+  });
+
+  it('clears filters and selection, keeps search and hide-done', () => {
+    const s = new Store();
+    s.setQuery({ search: 'login', hideDone: true });
+    s.toggleFilter('sprint', 'S1');
+    s.select('Tasks/TASK-1 A.md');
+    s.setProject('Alpha', ['status', 'sprint']);
+    const st = s.getState();
+    expect(st.project).toBe('Alpha');
+    expect(st.selectedPath).toBeNull();
+    expect(st.query.filters).toEqual({});
+    expect(st.query.search).toBe('login');
+    expect(st.query.hideDone).toBe(true);
+  });
+
+  it('keeps grouping and sort when the new project has those fields', () => {
+    const s = new Store();
+    s.setQuery({ groupBy: 'status', sortKey: 'due' });
+    s.setProject('Alpha', ['status', 'due']);
+    expect(s.getState().query.groupBy).toBe('status');
+    expect(s.getState().query.sortKey).toBe('due');
+  });
+
+  it('resets grouping and sort that the new project lacks', () => {
+    const s = new Store();
+    s.setQuery({ groupBy: 'sprint', sortKey: 'estimate' });
+    s.setProject(null, ['status']);
+    expect(s.getState().query.groupBy).toBeNull();
+    expect(s.getState().query.sortKey).toBe('updated');
+  });
+
+  it('keeps a built-in sort key', () => {
+    const s = new Store();
+    s.setQuery({ sortKey: 'title' });
+    s.setProject('Alpha', []);
+    expect(s.getState().query.sortKey).toBe('title');
   });
 });
