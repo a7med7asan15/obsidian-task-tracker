@@ -1,0 +1,3 @@
+- bug: sprint dropdown makes the task sidebar go left instead of showing directly on sidebar
+- task title should show all the title in multiline in the task page. keep the title in sidebar as is
+- project settings and fields control from inside osidian. maybe settings md file for each project to free items from plugin settings 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { FieldDef } from '../schema/types';
 import { coerceValue } from '../schema/coerce';
+import { MultiPicker } from './MultiPicker';
 
 interface Props {
   def: FieldDef;
@@ -58,21 +59,16 @@ export function FieldWidget({ def, value, onCommit }: Props) {
         );
       }
       return (
-        <div class="tt-multiselect">
-          {options.map((o) => (
-            <label key={o}>
-              <input
-                type="checkbox"
-                checked={selected.includes(o)}
-                onChange={(e) => {
-                  const on = (e.target as HTMLInputElement).checked;
-                  onCommit(on ? [...selected, o] : selected.filter((v) => v !== o));
-                }}
-              />
-              {o}
-            </label>
-          ))}
-        </div>
+        <MultiPicker
+          label={selected.length === 0 ? 'None' : ''}
+          options={options}
+          selected={selected}
+          showValues
+          onToggle={(o) => onCommit(
+            selected.includes(o) ? selected.filter((v) => v !== o) : [...selected, o],
+          )}
+          onClear={() => onCommit([])}
+        />
       );
     }
 

@@ -5,10 +5,15 @@ export interface ProjectDef {
   name: string;
   /** ID prefix for tasks in this project, e.g. 'PROJ' produces PROJ-1. */
   idPrefix: string;
+  /** Vault-relative folder for this project's tasks. Defaults to `<name>/Tasks`. */
+  folder?: string;
 }
 
 export interface TaskTrackerSettings {
-  /** Vault-relative folder holding task files. Flat; subfolders are ignored. */
+  /**
+   * Vault-relative folder for tasks with no project. Flat; subfolders are
+   * ignored. Each project keeps its own tasks in `<project>/Tasks`.
+   */
   tasksFolder: string;
   /** Default ID prefix when no project is selected, e.g. 'TASK' produces TASK-1. */
   idPrefix: string;

@@ -7,7 +7,9 @@ import { TaskWriter } from './write/writer';
 import { TaskTrackerView, VIEW_TYPE_TASK_TRACKER } from './ui/TaskTrackerView';
 import { CreateTaskModal } from './ui/CreateTaskModal';
 import { CreateProjectModal } from './ui/CreateProjectModal';
-import { ensureProjectField, prefixForProject } from './settings/projects';
+import {
+  ensureProjectField, folderForProject, prefixForProject, taskFolders,
+} from './settings/projects';
 import { TaskTrackerSettingTab } from './settings/SettingsTab';
 
 export default class TaskTrackerPlugin extends Plugin {
@@ -36,7 +38,7 @@ export default class TaskTrackerPlugin extends Plugin {
       },
     };
 
-    this.index = new TaskIndex(source, () => this.settings.tasksFolder);
+    this.index = new TaskIndex(source, () => taskFolders(this.settings));
     this.writer = new TaskWriter(new ObsidianVaultAdapter(this.app), () => this.settings);
 
     this.registerView(
@@ -107,7 +109,9 @@ export default class TaskTrackerPlugin extends Plugin {
       void (async () => {
         try {
           const prefix = prefixForProject(this.settings, project);
-          const path = await this.writer.createTask(title, fields, this.index.ids(), prefix);
+          const path = await this.writer.createTask(
+            title, fields, this.index.ids(), prefix, folderForProject(this.settings, project),
+          );
           await this.index.updateOne(path);
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TASK_TRACKER);
           for (const leaf of leaves) {
@@ -125,9 +129,13 @@ export default class TaskTrackerPlugin extends Plugin {
     new CreateProjectModal(this.app, this.settings, (name, idPrefix) => {
       void (async () => {
         this.settings.projects = [...this.settings.projects, { name, idPrefix }];
+        const folder = folderForProject(this.settings, name);
+        if (!this.app.vault.getAbstractFileByPath(folder)) {
+          await this.app.vault.createFolder(folder).catch(() => undefined);
+        }
         this.settings.schema = ensureProjectField(this.settings.schema, this.settings.projects);
         await this.saveSettings();
-        new Notice(`Project "${name}" created. Tasks will get ${idPrefix}-1, ${idPrefix}-2, …`);
+        new Notice(`Project "${name}" created. Tasks go in ${folder}/ as ${idPrefix}-1, ${idPrefix}-2, …`);
       })();
     }).open();
   }

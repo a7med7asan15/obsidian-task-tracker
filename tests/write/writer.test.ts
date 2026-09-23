@@ -402,6 +402,19 @@ describe('frontmatter mutation safety (Critical 1 / Critical 2)', () => {
   });
 });
 
+describe('project folders', () => {
+  it('creates a task in the folder it is given', async () => {
+    const path = await writer.createTask('Ship it', {}, [], 'SHN', 'Shahin NPU/Tasks');
+    expect(path).toBe('Shahin NPU/Tasks/SHN-1 Ship it.md');
+  });
+
+  it('renames a project task within its own folder', async () => {
+    const path = await writer.createTask('Old', {}, [], 'SHN', 'Shahin NPU/Tasks');
+    const { path: next } = await writer.setTitle(path, 'New');
+    expect(next).toBe('Shahin NPU/Tasks/SHN-1 New.md');
+  });
+});
+
 describe('setTitle', () => {
   it('renames the file and updates the frontmatter title', async () => {
     const path = await writer.createTask('Old name', {}, []);

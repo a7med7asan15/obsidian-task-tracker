@@ -42,3 +42,13 @@ describe('Store', () => {
     expect(s.getState().query.filters.status).toEqual([]);
   });
 });
+
+describe('Store.clearFilter', () => {
+  it('drops one field filter and keeps the others', () => {
+    const s = new Store();
+    s.toggleFilter('sprint', 'HS1');
+    s.toggleFilter('status', 'Done');
+    s.clearFilter('sprint');
+    expect(s.getState().query.filters).toEqual({ status: ['Done'] });
+  });
+});

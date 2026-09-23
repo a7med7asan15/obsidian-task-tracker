@@ -1,23 +1,46 @@
+import { useState } from 'preact/hooks';
 import type { FieldDef } from '../schema/types';
 import type { Query } from '../query/types';
+import type { Task } from '../model/types';
+import { MultiPicker } from './MultiPicker';
 
 interface Props {
   query: Query;
   schema: FieldDef[];
+  tasks: Task[];
   onQuery: (patch: Partial<Query>) => void;
   onToggleFilter: (key: string, value: string) => void;
+  onClearFilter: (key: string) => void;
   onCreate: () => void;
   onCreateProject: () => void;
 }
 
-/** Fields whose values form a closed set are the ones worth offering as chips. */
+/** Fields whose values form a closed set are the ones worth offering as filters. */
 function filterableFields(schema: FieldDef[]): FieldDef[] {
   return schema.filter((f) => f.type === 'select' || f.type === 'multiselect');
 }
 
+/**
+ * The values a filter offers: the field's options, or -- for a free-form
+ * multiselect with no options -- whatever values the tasks actually carry.
+ */
+export function filterOptions(def: FieldDef, tasks: Task[]): string[] {
+  if ((def.options ?? []).length > 0) return def.options ?? [];
+  const seen = new Set<string>();
+  for (const t of tasks) {
+    const raw = t.fields[def.key];
+    for (const v of Array.isArray(raw) ? raw : [raw]) {
+      if (typeof v === 'string' && v.length > 0) seen.add(v);
+    }
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
 export function FilterBar({
-  query, schema, onQuery, onToggleFilter, onCreate, onCreateProject,
+  query, schema, tasks, onQuery, onToggleFilter, onClearFilter, onCreate, onCreateProject,
 }: Props) {
+  const [open, setOpen] = useState(false);
+
   const sortOptions = [
     { key: 'updated', label: 'Updated' },
     { key: 'created', label: 'Created' },
@@ -27,26 +50,43 @@ export function FilterBar({
       .map((f) => ({ key: f.key, label: f.label })),
   ];
 
+  const fields = filterableFields(schema)
+    .map((f) => ({ def: f, options: filterOptions(f, tasks) }))
+    .filter((f) => f.options.length > 0);
+  const active = Object.values(query.filters).reduce((n, v) => n + v.length, 0);
+
   return (
     <div class="tt-filterbar">
       <div class="tt-filter-row">
         <input
           class="tt-search"
           type="search"
-          placeholder="Search tasks…"
+          placeholder="Search…"
           value={query.search}
           onInput={(e) => onQuery({ search: (e.target as HTMLInputElement).value })}
         />
-        <button class="mod-cta tt-create" onClick={onCreate}>Create issue</button>
-        <button class="tt-create tt-create-secondary" onClick={onCreateProject}>Create project</button>
+        <button class="mod-cta tt-create" onClick={onCreate} title="Create issue">+ Issue</button>
+        <button class="tt-create tt-create-secondary" onClick={onCreateProject} title="Create project">
+          + Project
+        </button>
       </div>
 
-      <div class="tt-filter-row">
+      <div class="tt-filter-row tt-filter-row-compact">
+        <button
+          class={`tt-filter-toggle${open ? ' is-open' : ''}${active > 0 ? ' is-active' : ''}`}
+          onClick={() => setOpen(!open)}
+          title={open ? 'Hide filters' : 'Show filters'}
+        >
+          Filters{active > 0 ? ` · ${active}` : ''} {open ? '▴' : '▾'}
+        </button>
+
         <select
+          class="tt-compact-select"
           value={query.sortKey}
+          title="Sort by"
           onChange={(e) => onQuery({ sortKey: (e.target as HTMLSelectElement).value })}
         >
-          {sortOptions.map((o) => <option value={o.key} key={o.key}>Sort: {o.label}</option>)}
+          {sortOptions.map((o) => <option value={o.key} key={o.key}>↕ {o.label}</option>)}
         </select>
 
         <button
@@ -58,7 +98,9 @@ export function FilterBar({
         </button>
 
         <select
+          class="tt-compact-select"
           value={query.groupBy ?? ''}
+          title="Group by"
           onChange={(e) => {
             const v = (e.target as HTMLSelectElement).value;
             onQuery({ groupBy: v === '' ? null : v });
@@ -66,11 +108,11 @@ export function FilterBar({
         >
           <option value="">No grouping</option>
           {filterableFields(schema).map((f) => (
-            <option value={f.key} key={f.key}>Group: {f.label}</option>
+            <option value={f.key} key={f.key}>▤ {f.label}</option>
           ))}
         </select>
 
-        <label class="tt-toggle">
+        <label class="tt-toggle" title="Hide done tasks">
           <input
             type="checkbox"
             checked={query.hideDone}
@@ -80,23 +122,25 @@ export function FilterBar({
         </label>
       </div>
 
-      {filterableFields(schema).map((f) => (
-        <div class="tt-chips" key={f.key}>
-          <span class="tt-chips-label">{f.label}</span>
-          {(f.options ?? []).map((opt) => {
-            const active = (query.filters[f.key] ?? []).includes(opt);
-            return (
-              <button
-                key={opt}
-                class={`tt-chip${active ? ' is-active' : ''}`}
-                onClick={() => onToggleFilter(f.key, opt)}
-              >
-                {opt}
-              </button>
-            );
-          })}
+      {open && (
+        <div class="tt-filter-pickers">
+          {fields.map(({ def, options }) => (
+            <MultiPicker
+              key={def.key}
+              label={def.label}
+              options={options}
+              selected={query.filters[def.key] ?? []}
+              onToggle={(v) => onToggleFilter(def.key, v)}
+              onClear={() => onClearFilter(def.key)}
+            />
+          ))}
+          {active > 0 && (
+            <button class="tt-picker-reset" onClick={() => onQuery({ filters: {} })}>
+              Clear all
+            </button>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }

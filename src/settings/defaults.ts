@@ -21,12 +21,13 @@ export function mergeSettings(saved: unknown): TaskTrackerSettings {
 
   const projects = Array.isArray(s.projects)
     ? s.projects.filter(
-        (p): p is { name: string; idPrefix: string } =>
+        (p): p is { name: string; idPrefix: string; folder?: string } =>
           p !== null &&
           typeof p === 'object' &&
           typeof p.name === 'string' &&
           typeof p.idPrefix === 'string' &&
-          p.name.length > 0,
+          p.name.length > 0 &&
+          (p.folder === undefined || typeof p.folder === 'string'),
       )
     : [];
 

@@ -36,6 +36,11 @@ export class Store {
     this.setQuery({ filters: { ...this.state.query.filters, [key]: next } });
   }
 
+  clearFilter(key: string): void {
+    const { [key]: _dropped, ...rest } = this.state.query.filters;
+    this.setQuery({ filters: rest });
+  }
+
   select(path: string | null): void {
     this.set({ ...this.state, selectedPath: path });
   }

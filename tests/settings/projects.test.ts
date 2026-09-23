@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ensureProjectField, prefixForProject, suggestPrefix, PROJECT_KEY } from '../../src/settings/projects';
+import {
+  ensureProjectField, folderForProject, prefixForProject, projectFolder, suggestPrefix,
+  taskFolders, PROJECT_KEY,
+} from '../../src/settings/projects';
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import type { FieldDef } from '../../src/schema/types';
 
@@ -56,5 +59,30 @@ describe('prefixForProject', () => {
   it('returns undefined for an unknown or empty project', () => {
     expect(prefixForProject(DEFAULT_SETTINGS, 'Nope')).toBeUndefined();
     expect(prefixForProject(DEFAULT_SETTINGS, '')).toBeUndefined();
+  });
+});
+
+describe('project folders', () => {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    projects: [
+      { name: 'Shahin NPU', idPrefix: 'SHN' },
+      { name: 'Web', idPrefix: 'WEB', folder: '/Work/Web Tasks/' },
+    ],
+  };
+
+  it('defaults to <name>/Tasks and trims slashes off an explicit folder', () => {
+    expect(projectFolder(settings.projects[0])).toBe('Shahin NPU/Tasks');
+    expect(projectFolder(settings.projects[1])).toBe('Work/Web Tasks');
+  });
+
+  it('scans the default folder plus one folder per project', () => {
+    expect(taskFolders(settings)).toEqual(['Tasks', 'Shahin NPU/Tasks', 'Work/Web Tasks']);
+  });
+
+  it('creates tasks without a project in the default folder', () => {
+    expect(folderForProject(settings, 'Shahin NPU')).toBe('Shahin NPU/Tasks');
+    expect(folderForProject(settings, '')).toBe('Tasks');
+    expect(folderForProject(settings, 'Unknown')).toBe('Tasks');
   });
 });

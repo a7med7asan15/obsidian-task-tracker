@@ -1,5 +1,6 @@
 import { App, debounce, Notice, PluginSettingTab, Setting, type Debouncer } from 'obsidian';
 import type TaskTrackerPlugin from '../main';
+import { projectFolder } from './projects';
 import type { FieldDef, FieldType } from '../schema/types';
 import {
   addField, removeField, reorderField, sortedSchema, updateField, validateFieldDef,
@@ -35,7 +36,7 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Tasks folder')
-      .setDesc('Flat folder holding task files.')
+      .setDesc('Flat folder for tasks without a project. Project tasks live in <project>/Tasks.')
       .addText((t) => t.setValue(s.tasksFolder).onChange((v) => {
         s.tasksFolder = v.trim() || 'Tasks';
         this.debouncedSave();
@@ -68,9 +69,13 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
     for (const p of s.projects) {
       new Setting(containerEl)
         .setName(p.name)
-        .setDesc(`Task IDs start with ${p.idPrefix}-`)
-        .addText((t) => t.setValue(p.idPrefix).onChange((v) => {
+        .setDesc(`Task IDs start with ${p.idPrefix}-. Tasks live in ${projectFolder(p)}/.`)
+        .addText((t) => t.setPlaceholder('Prefix').setValue(p.idPrefix).onChange((v) => {
           p.idPrefix = v.trim().toUpperCase() || p.idPrefix;
+          this.debouncedSave();
+        }))
+        .addText((t) => t.setPlaceholder(`${p.name}/Tasks`).setValue(p.folder ?? '').onChange((v) => {
+          p.folder = v.trim() || undefined;
           this.debouncedSave();
         }))
         .addButton((b) => b.setButtonText('Delete').setWarning().onClick(async () => {

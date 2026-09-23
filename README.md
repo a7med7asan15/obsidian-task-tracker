@@ -11,7 +11,9 @@ flat folder; filtering, editing and comments happen in a two-pane GUI.
 ## Features
 
 - Two-pane view: filterable task list, structured detail pane.
-- Search, filter chips, sort, group-by, and a hide-done toggle.
+- Search, collapsible filter dropdowns, sort, group-by, and a hide-done toggle.
+- Drag the divider to resize the list; in a narrow pane the list and the
+  detail view take turns.
 - Fields you define yourself from settings — text, number, date, select,
   multi-select, checkbox, person.
 - Comments with author and timestamp, editable in place.
@@ -50,7 +52,16 @@ and its text are kept, just one level down.
 
 ## Settings
 
-- **Tasks folder** — where task files live. Flat; subfolders are ignored.
+- **Tasks folder** — where tasks without a project live. Flat; subfolders are ignored.
+- **Projects** — each project has its own ID prefix and its own flat folder,
+  `<project name>/Tasks` unless you set another. A vault with two projects
+  looks like:
+
+  ```
+  Tasks/                 tasks with no project (TASK-1, …)
+  Project1/Tasks/        PROJ1-1, PROJ1-2, …
+  Project2/Tasks/        PROJ2-1, …
+  ```
 - **ID prefix** — `TASK` produces `TASK-1`, `TASK-2`, …
 - **Your name** — the author stamped on comments.
 - **Fields** — add, rename, reorder, and delete the fields every task has. A

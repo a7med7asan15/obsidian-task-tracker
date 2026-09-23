@@ -107,6 +107,32 @@ export class CreateTaskModal extends Modal {
               this.fields[def.key] = v.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
             });
           });
+        } else if (opts.length > 8) {
+          // Long lists (components, ...) as an add-dropdown plus removable pills.
+          const pills = setting.controlEl.createDiv({ cls: 'tt-pills' });
+          const redraw = () => {
+            pills.empty();
+            for (const v of selected) {
+              const pill = pills.createSpan({ cls: 'tt-pill', text: v });
+              const x = pill.createEl('button', { cls: 'tt-pill-x', text: '×' });
+              x.addEventListener('click', () => {
+                selected.delete(v);
+                this.fields[def.key] = [...selected];
+                redraw();
+              });
+            }
+          };
+          setting.addDropdown((d) => {
+            d.addOption('', 'Add…');
+            for (const o of opts) d.addOption(o, o);
+            d.onChange((v) => {
+              if (v !== '') selected.add(v);
+              this.fields[def.key] = [...selected];
+              d.setValue('');
+              redraw();
+            });
+          });
+          redraw();
         } else {
           const wrap = setting.controlEl.createDiv({ cls: 'tt-multiselect' });
           for (const o of opts) {

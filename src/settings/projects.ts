@@ -4,6 +4,23 @@ import type { ProjectDef, TaskTrackerSettings } from './types';
 /** Frontmatter key carrying the project name on a task. */
 export const PROJECT_KEY = 'project';
 
+/** Folder holding a project's tasks: its explicit `folder`, else `<name>/Tasks`. */
+export function projectFolder(project: ProjectDef): string {
+  const folder = project.folder?.trim().replace(/^\/+|\/+$/g, '');
+  return folder && folder.length > 0 ? folder : `${project.name}/Tasks`;
+}
+
+/** Every folder the index scans: the default tasks folder, then one per project. */
+export function taskFolders(settings: TaskTrackerSettings): string[] {
+  return [...new Set([settings.tasksFolder, ...settings.projects.map(projectFolder)])];
+}
+
+/** Folder a new task under `projectName` is created in. */
+export function folderForProject(settings: TaskTrackerSettings, projectName: string): string {
+  const project = settings.projects.find((p) => p.name === projectName);
+  return project ? projectFolder(project) : settings.tasksFolder;
+}
+
 /** Derive a suggested ID prefix from a project name: alphanumeric, uppercase. */
 export function suggestPrefix(name: string): string {
   const cleaned = name.toUpperCase().replace(/[^A-Z0-9]/g, '');

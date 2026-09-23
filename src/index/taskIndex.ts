@@ -22,7 +22,8 @@ export class TaskIndex {
 
   constructor(
     private source: MetadataSource,
-    private tasksFolder: () => string,
+    /** Folders holding task files. Each is flat: subfolders are ignored. */
+    private taskFolders: () => string[],
   ) {}
 
   onChange(cb: () => void): () => void {
@@ -35,7 +36,8 @@ export class TaskIndex {
   }
 
   private inFolder(path: string): boolean {
-    return path.startsWith(`${this.tasksFolder()}/`);
+    const parent = path.slice(0, Math.max(path.lastIndexOf('/'), 0));
+    return this.taskFolders().includes(parent);
   }
 
   /** Frontmatter only — deliberately does not read file bodies. */
@@ -54,8 +56,8 @@ export class TaskIndex {
   async rebuild(): Promise<void> {
     this.tasks.clear();
     this.loadedBodies.clear();
-    for (const path of this.source.pathsIn(this.tasksFolder())) {
-      this.indexOne(path);
+    for (const folder of this.taskFolders()) {
+      for (const path of this.source.pathsIn(folder)) this.indexOne(path);
     }
     this.emit();
   }

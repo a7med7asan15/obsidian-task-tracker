@@ -27,7 +27,7 @@ beforeEach(() => {
   source.add('Tasks/TASK-1 A.md', { id: 'TASK-1', title: 'A', status: 'To Do' });
   source.add('Tasks/TASK-2 B.md', { id: 'TASK-2', title: 'B', status: 'Done' });
   source.add('Notes/not-a-task.md', { title: 'Nope' });
-  index = new TaskIndex(source, () => 'Tasks');
+  index = new TaskIndex(source, () => ['Tasks']);
 });
 
 describe('TaskIndex', () => {
@@ -147,5 +147,25 @@ describe('TaskIndex', () => {
     await index.updateOne('Tasks/TASK-1 A.md');
     expect(spy).not.toHaveBeenCalled();
     expect(index.get('Tasks/TASK-1 A.md')?.title).toBe('A renamed');
+  });
+});
+
+describe('TaskIndex across project folders', () => {
+  it('indexes every configured folder, flat, and updates only those', async () => {
+    const src = new FakeSource();
+    src.add('Tasks/TASK-1 A.md', { id: 'TASK-1', title: 'A' });
+    src.add('Alpha/Tasks/ALPHA-1 B.md', { id: 'ALPHA-1', title: 'B' });
+    src.add('Beta/Tasks/BETA-1 C.md', { id: 'BETA-1', title: 'C' });
+    src.add('Alpha/Notes/other.md', { id: 'X-1', title: 'Not a task' });
+    const idx = new TaskIndex(src, () => ['Tasks', 'Alpha/Tasks', 'Beta/Tasks']);
+    await idx.rebuild();
+    expect(idx.ids().sort()).toEqual(['ALPHA-1', 'BETA-1', 'TASK-1']);
+
+    src.add('Beta/Tasks/BETA-2 D.md', { id: 'BETA-2', title: 'D' });
+    await idx.updateOne('Beta/Tasks/BETA-2 D.md');
+    src.add('Beta/Tasks/sub/BETA-3 E.md', { id: 'BETA-3', title: 'E' });
+    await idx.updateOne('Beta/Tasks/sub/BETA-3 E.md');
+    expect(idx.ids()).toContain('BETA-2');
+    expect(idx.ids()).not.toContain('BETA-3');
   });
 });

@@ -115,8 +115,9 @@ export class TaskWriter {
     fields: Record<string, unknown>,
     existingIds: string[],
     idPrefix?: string,
+    folder?: string,
   ): Promise<string> {
-    const { tasksFolder } = this.settings();
+    const tasksFolder = folder ?? this.settings().tasksFolder;
     const id = this.nextId(existingIds, idPrefix);
     const now = formatTimestamp(new Date());
 
@@ -166,7 +167,8 @@ export class TaskWriter {
    * (the spec requires a Notice here, not a silent no-op).
    */
   async setTitle(path: string, title: string): Promise<{ path: string; collision: boolean }> {
-    const { tasksFolder } = this.settings();
+    // Rename in place: a task stays in whichever (project) folder it lives in.
+    const tasksFolder = path.slice(0, Math.max(path.lastIndexOf('/'), 0));
     let id: string | undefined;
     await this.vault.processFrontmatter(path, (fm) => {
       fm.title = title;
@@ -176,7 +178,8 @@ export class TaskWriter {
 
     if (id === undefined) return { path, collision: false };
 
-    const target = `${tasksFolder}/${sanitizeFilename(`${id} ${title}`)}.md`;
+    const name = `${sanitizeFilename(`${id} ${title}`)}.md`;
+    const target = tasksFolder === '' ? name : `${tasksFolder}/${name}`;
     if (target === path) return { path, collision: false };
     if (await this.vault.exists(target)) return { path, collision: true };
 
