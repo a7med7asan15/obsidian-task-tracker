@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# Cut a new GitHub release that Obsidian (and BRAT) can install from.
+# Bump the plugin version, then commit, tag and push it with git.
+# Pushing the tag triggers .github/workflows/release.yml, which builds the
+# plugin and creates the GitHub release with main.js, manifest.json and styles.css.
 #
-# Usage: npm run release -- [patch|minor|major|<x.y.z>] ["release notes"]
-#   defaults to "patch"; notes default to the commit subjects since the last tag.
+# Usage: npm run release -- [patch|minor|major|<x.y.z>]   (defaults to patch)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 BUMP="${1:-patch}"
-NOTES="${2:-}"
-
-command -v gh >/dev/null || { echo "gh CLI is required" >&2; exit 1; }
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$branch" == "main" ]] || { echo "Releases must be cut from main (on $branch)" >&2; exit 1; }
@@ -23,8 +21,6 @@ echo "==> Checking"
 npm run typecheck
 npm test
 npm run build
-
-prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 
 echo "==> Bumping version ($BUMP)"
 npm version "$BUMP" --no-git-tag-version >/dev/null
@@ -48,15 +44,6 @@ versions[v] = manifest.minAppVersion;
 fs.writeFileSync("versions.json", JSON.stringify(versions, null, 2) + "\n");
 ' "$VERSION"
 
-# Rebuild so main.js is produced from the bumped tree.
-npm run build
-
-if [[ -z "$NOTES" ]]; then
-  range="${prev_tag:+$prev_tag..}HEAD"
-  NOTES="$(git log --pretty='- %s' "$range")"
-  [[ -n "$NOTES" ]] || NOTES="Release $VERSION"
-fi
-
 echo "==> Committing and tagging $VERSION"
 git add package.json package-lock.json manifest.json versions.json
 git commit -m "Bump version to $VERSION"
@@ -64,9 +51,5 @@ git tag -a "$VERSION" -m "$VERSION"
 git push origin main
 git push origin "$VERSION"
 
-echo "==> Creating GitHub release $VERSION"
-gh release create "$VERSION" main.js manifest.json styles.css \
-  --title "$VERSION" \
-  --notes "$NOTES"
-
-echo "Released $VERSION"
+echo "Pushed tag $VERSION; GitHub Actions will build and publish the release:"
+echo "  https://github.com/a7med7asan15/obsidian-task-tracker/actions"
