@@ -29,3 +29,22 @@ export interface TaskTrackerSettings {
   /** Which schema field drives the due badge, or null to disable it. */
   dueFieldKey: string | null;
 }
+
+/**
+ * Everything the view needs to show one project's tasks: its fields,
+ * statuses, ID prefix and folder. "No project" is a scope too, built from
+ * plugin settings.
+ */
+export interface ProjectScope {
+  /** Null for "No project". */
+  name: string | null;
+  /** The project's `Settings/project.md`, or null for "No project". */
+  filePath: string | null;
+  idPrefix: string;
+  /** Vault-relative folder holding the project's tasks. */
+  tasksFolder: string;
+  schema: FieldDef[];
+  statusFieldKey: string;
+  doneStatuses: string[];
+  dueFieldKey: string | null;
+}
