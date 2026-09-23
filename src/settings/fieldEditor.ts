@@ -60,9 +60,12 @@ export function renderFieldEditor(
 
   const sorted = sortedSchema(c.schema);
   sorted.forEach((f, i) => {
+    // Six controls leave the name column a sliver, so these rows stack the
+    // name above the controls; the options live in their own text box.
     new Setting(el)
+      .setClass('tt-field-row')
       .setName(`${f.label} (${f.type})`)
-      .setDesc(`Key: ${f.key}${f.options?.length ? ` · ${f.options.join(', ')}` : ''}`)
+      .setDesc(`Key: ${f.key}`)
       .addText((t) => t.setPlaceholder('Label').setValue(f.label).onChange((v) => {
         if (v.trim().length === 0) return;
         emit({ schema: updateField(c.schema, f.key, { label: v.trim() }) }, false);

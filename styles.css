@@ -486,3 +486,11 @@
   .tt-field { display: block; }
   .tt-field-label { display: block; margin-bottom: 2px; }
 }
+
+/* ------------------------------------------------------ field editor rows */
+
+/* Name and key on one line, the controls on a full-width line below. */
+.tt-field-row { flex-wrap: wrap; gap: 8px; }
+.tt-field-row .setting-item-info { flex: 1 1 100%; margin-inline-end: 0; }
+.tt-field-row .setting-item-control { flex: 1 1 100%; justify-content: flex-start; }
+.tt-field-row .setting-item-control input[type="text"] { flex: 1 1 0; min-width: 0; }

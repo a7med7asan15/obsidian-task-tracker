@@ -6,6 +6,9 @@ import path from 'path';
 
 const prod = process.argv[2] === 'production';
 
+// Pick up VAULT_PATH from .env (see .env.example) so builds land in the vault.
+if (fs.existsSync('.env')) process.loadEnvFile('.env');
+
 const copyToVault = {
   name: 'copy-to-vault',
   setup(build) {
