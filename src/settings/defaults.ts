@@ -1,10 +1,9 @@
 import { DEFAULT_SCHEMA } from '../schema/defaults';
-import type { TaskTrackerSettings } from './types';
+import type { LegacyProject, TaskTrackerSettings } from './types';
 
 export const DEFAULT_SETTINGS: TaskTrackerSettings = {
   tasksFolder: 'Tasks',
   idPrefix: 'TASK',
-  projects: [],
   authorName: 'Me',
   schema: DEFAULT_SCHEMA,
   statusFieldKey: 'status',
@@ -19,22 +18,18 @@ export function mergeSettings(saved: unknown): TaskTrackerSettings {
   const schema =
     Array.isArray(s.schema) && s.schema.length > 0 ? s.schema : DEFAULT_SETTINGS.schema;
 
-  const projects = Array.isArray(s.projects)
-    ? s.projects.filter(
-        (p): p is { name: string; idPrefix: string; folder?: string } =>
-          p !== null &&
-          typeof p === 'object' &&
-          typeof p.name === 'string' &&
-          typeof p.idPrefix === 'string' &&
-          p.name.length > 0 &&
-          (p.folder === undefined || typeof p.folder === 'string'),
-      )
-    : [];
-
-  return {
-    ...DEFAULT_SETTINGS,
-    ...s,
-    schema,
-    projects,
-  };
+  const { projects: rawProjects, ...rest } = s;
+  const merged: TaskTrackerSettings = { ...DEFAULT_SETTINGS, ...rest, schema };
+  if (Array.isArray(rawProjects)) {
+    merged.projects = rawProjects.filter(
+      (p): p is LegacyProject =>
+        p !== null &&
+        typeof p === 'object' &&
+        typeof p.name === 'string' &&
+        typeof p.idPrefix === 'string' &&
+        p.name.length > 0 &&
+        (p.folder === undefined || typeof p.folder === 'string'),
+    );
+  }
+  return merged;
 }

@@ -1,7 +1,7 @@
 import type { FieldDef } from '../schema/types';
 
-/** A named project. Tasks created under it get IDs starting with `idPrefix`. */
-export interface ProjectDef {
+/** A project as plugin settings stored it before settings files. Only read by migration. */
+export interface LegacyProject {
   name: string;
   /** ID prefix for tasks in this project, e.g. 'PROJ' produces PROJ-1. */
   idPrefix: string;
@@ -17,8 +17,11 @@ export interface TaskTrackerSettings {
   tasksFolder: string;
   /** Default ID prefix when no project is selected, e.g. 'TASK' produces TASK-1. */
   idPrefix: string;
-  /** Projects. Each overrides the default prefix for its tasks. */
-  projects: ProjectDef[];
+  /**
+   * Legacy project list. Present only until migrateLegacyProjects() has
+   * moved each entry into its own Settings/project.md.
+   */
+  projects?: LegacyProject[];
   /** Author name stamped on comments. */
   authorName: string;
   schema: FieldDef[];

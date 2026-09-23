@@ -15,7 +15,7 @@ describe('DEFAULT_SETTINGS', () => {
   });
 
   it('starts with no projects', () => {
-    expect(DEFAULT_SETTINGS.projects).toEqual([]);
+    expect(DEFAULT_SETTINGS.projects).toBeUndefined();
   });
 });
 
@@ -55,7 +55,7 @@ describe('mergeSettings', () => {
   });
 
   it('drops malformed project entries and non-array values', () => {
-    expect(mergeSettings({ projects: 'nope' }).projects).toEqual([]);
+    expect(mergeSettings({ projects: 'nope' }).projects).toBeUndefined();
     expect(mergeSettings({ projects: [{ name: '', idPrefix: 'X' }, null, 3] }).projects).toEqual([]);
   });
 });

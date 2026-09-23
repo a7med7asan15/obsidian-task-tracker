@@ -66,7 +66,7 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
       .addButton((b) => b.setButtonText('Create project').setCta()
         .onClick(() => this.plugin.openCreateProjectModal()));
 
-    for (const p of s.projects) {
+    for (const p of s.projects ?? []) {
       new Setting(containerEl)
         .setName(p.name)
         .setDesc(`Task IDs start with ${p.idPrefix}-. Tasks live in ${projectFolder(p)}/.`)
@@ -79,7 +79,7 @@ export class TaskTrackerSettingTab extends PluginSettingTab {
           this.debouncedSave();
         }))
         .addButton((b) => b.setButtonText('Delete').setWarning().onClick(async () => {
-          s.projects = s.projects.filter((x) => x !== p);
+          s.projects = (s.projects ?? []).filter((x) => x !== p);
           await this.plugin.saveSettings();
         }));
     }

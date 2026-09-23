@@ -57,7 +57,7 @@ export class CreateProjectModal extends Modal {
           new Notice('A project name is required.');
           return;
         }
-        if (this.settings.projects.some((p) => p.name === name)) {
+        if ((this.settings.projects ?? []).some((p) => p.name === name)) {
           new Notice(`A project named "${name}" already exists.`);
           return;
         }

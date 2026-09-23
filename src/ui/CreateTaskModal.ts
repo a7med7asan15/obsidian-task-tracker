@@ -44,6 +44,7 @@ export class CreateTaskModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    const projects = this.settings.projects ?? [];
     contentEl.createEl('h2', { text: 'Create issue' });
 
     const title = new Setting(contentEl).setName('Title');
@@ -62,8 +63,8 @@ export class CreateTaskModal extends Modal {
     }
 
     // Project picker: choosing one stamps `project` and drives the ID prefix.
-    if (this.settings.projects.length > 0) {
-      const first = this.settings.projects[0];
+    if (projects.length > 0) {
+      const first = projects[0];
       this.project = first.name;
       if (this.fields[PROJECT_KEY] === undefined || this.fields[PROJECT_KEY] === null) {
         this.fields[PROJECT_KEY] = first.name;
@@ -73,7 +74,7 @@ export class CreateTaskModal extends Modal {
         .setDesc(`IDs start with this project's prefix, e.g. ${first.idPrefix}-1.`)
         .addDropdown((d) => {
           d.addOption('', '— no project —');
-          for (const p of this.settings.projects) d.addOption(p.name, `${p.name} (${p.idPrefix})`);
+          for (const p of projects) d.addOption(p.name, `${p.name} (${p.idPrefix})`);
           d.setValue(this.project);
           d.onChange((v) => {
             this.project = v;
@@ -85,7 +86,7 @@ export class CreateTaskModal extends Modal {
     // All schema fields appear here (required ones first via sorted order);
     // the detail pane remains available for edits after creation.
     for (const def of schema) {
-      if (def.key === PROJECT_KEY && this.settings.projects.length > 0) continue;
+      if (def.key === PROJECT_KEY && projects.length > 0) continue;
       const setting = new Setting(contentEl).setName(def.label);
       if (def.required) setting.setDesc('Required');
 

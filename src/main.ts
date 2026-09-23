@@ -128,12 +128,12 @@ export default class TaskTrackerPlugin extends Plugin {
   openCreateProjectModal(): void {
     new CreateProjectModal(this.app, this.settings, (name, idPrefix) => {
       void (async () => {
-        this.settings.projects = [...this.settings.projects, { name, idPrefix }];
+        this.settings.projects = [...(this.settings.projects ?? []), { name, idPrefix }];
         const folder = folderForProject(this.settings, name);
         if (!this.app.vault.getAbstractFileByPath(folder)) {
           await this.app.vault.createFolder(folder).catch(() => undefined);
         }
-        this.settings.schema = ensureProjectField(this.settings.schema, this.settings.projects);
+        this.settings.schema = ensureProjectField(this.settings.schema, this.settings.projects ?? []);
         await this.saveSettings();
         new Notice(`Project "${name}" created. Tasks go in ${folder}/ as ${idPrefix}-1, ${idPrefix}-2, …`);
       })();
