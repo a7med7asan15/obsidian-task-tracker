@@ -90,6 +90,31 @@ describe('applyQuery', () => {
     expect(idsOf(desc).at(-1)).toBe('TASK-4');
   });
 
+  it('sorts a select field by its declared option order, not alphabetically', () => {
+    const prioritySchema: FieldDef[] = [
+      ...schema,
+      { key: 'priority', label: 'Priority', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'], order: 3 },
+    ];
+    const ranked = [
+      task({ id: 'P-1', fields: { priority: 'Medium' } }),
+      task({ id: 'P-2', fields: { priority: 'Urgent' } }),
+      task({ id: 'P-3' }),
+      task({ id: 'P-4', fields: { priority: 'Low' } }),
+      task({ id: 'P-5', fields: { priority: 'Critical' } }), // not a declared option
+      task({ id: 'P-6', fields: { priority: 'High' } }),
+    ];
+    const sortBy = (dir: 'asc' | 'desc') =>
+      idsOf(applyQuery(ranked, q({ sortKey: 'priority', sortDir: dir }), prioritySchema, ['Done'], 'status'));
+    // Undeclared values, then empty ones, stay after the declared options either way.
+    expect(sortBy('asc')).toEqual(['P-4', 'P-1', 'P-6', 'P-2', 'P-5', 'P-3']);
+    expect(sortBy('desc')).toEqual(['P-2', 'P-6', 'P-1', 'P-4', 'P-5', 'P-3']);
+  });
+
+  it('sorts status in workflow order', () => {
+    expect(idsOf(run(q({ sortKey: 'status', sortDir: 'asc' }))))
+      .toEqual(['TASK-2', 'TASK-1', 'TASK-3']);
+  });
+
   it('sorts by title when sortKey is title', () => {
     expect(idsOf(run(q({ sortKey: 'title', sortDir: 'asc' }))))
       .toEqual(['TASK-1', 'TASK-3', 'TASK-2']);

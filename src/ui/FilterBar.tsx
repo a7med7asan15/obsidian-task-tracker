@@ -53,7 +53,8 @@ export function FilterBar({
     { key: 'created', label: 'Created' },
     { key: 'title', label: 'Title' },
     { key: 'id', label: 'ID' },
-    ...schema.filter((f) => f.type === 'date' || f.type === 'number')
+    // Select fields sort in their declared option order (Priority: Low..Urgent).
+    ...schema.filter((f) => f.type === 'date' || f.type === 'number' || f.type === 'select')
       .map((f) => ({ key: f.key, label: f.label })),
   ];
 

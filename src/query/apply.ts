@@ -43,7 +43,33 @@ function matchesFilters(task: Task, filters: Record<string, string[]>): boolean 
   return true;
 }
 
-function compare(a: Task, b: Task, key: string, dir: 'asc' | 'desc'): number {
+function groupOrder(key: string, schema: FieldDef[]): string[] | null {
+  const def = schema.find((f) => f.key === key);
+  return def?.options && def.options.length > 0 ? def.options : null;
+}
+
+/**
+ * Order two values by the field's declared options, so a select field sorts
+ * the way its options are listed (Low, Medium, High, Urgent) rather than
+ * alphabetically. A value the schema doesn't declare sorts after every
+ * declared one, alphabetically among its kind. Null when neither is declared.
+ */
+function compareDeclared(av: string, bv: string, declared: string[]): number | null {
+  const ai = declared.indexOf(av);
+  const bi = declared.indexOf(bv);
+  if (ai === -1 && bi === -1) return null;
+  if (ai === -1) return 1;
+  if (bi === -1) return -1;
+  return ai - bi;
+}
+
+function compare(
+  a: Task,
+  b: Task,
+  key: string,
+  dir: 'asc' | 'desc',
+  declared: string[] | null,
+): number {
   const av = valuesOf(a, key)[0];
   const bv = valuesOf(b, key)[0];
 
@@ -52,19 +78,23 @@ function compare(a: Task, b: Task, key: string, dir: 'asc' | 'desc'): number {
   if (av === undefined) return 1;
   if (bv === undefined) return -1;
 
+  // Like empty values, a value the select field doesn't declare stays after
+  // the declared ones in both directions: Urgent first, not a stray "P0".
+  if (declared) {
+    const aKnown = declared.includes(av);
+    const bKnown = declared.includes(bv);
+    if (aKnown !== bKnown) return aKnown ? -1 : 1;
+  }
+
   const an = Number(av);
   const bn = Number(bv);
   const cmp =
-    Number.isFinite(an) && Number.isFinite(bn) && av.trim() !== '' && bv.trim() !== ''
+    (declared ? compareDeclared(av, bv, declared) : null) ??
+    (Number.isFinite(an) && Number.isFinite(bn) && av.trim() !== '' && bv.trim() !== ''
       ? an - bn
-      : av.localeCompare(bv);
+      : av.localeCompare(bv));
 
   return dir === 'asc' ? cmp : -cmp;
-}
-
-function groupOrder(key: string, schema: FieldDef[]): string[] | null {
-  const def = schema.find((f) => f.key === key);
-  return def?.options && def.options.length > 0 ? def.options : null;
 }
 
 export function applyQuery(
@@ -83,7 +113,11 @@ export function applyQuery(
     return true;
   });
 
-  const sorted = [...filtered].sort((a, b) => compare(a, b, query.sortKey, query.sortDir));
+  const sortDef = schema.find((f) => f.key === query.sortKey);
+  const declared = sortDef?.type === 'select' ? groupOrder(query.sortKey, schema) : null;
+  const sorted = [...filtered].sort((a, b) =>
+    compare(a, b, query.sortKey, query.sortDir, declared),
+  );
 
   if (query.groupBy === null) {
     return [{ key: '', tasks: sorted }];
@@ -100,18 +134,11 @@ export function applyQuery(
     }
   }
 
-  const declared = groupOrder(query.groupBy, schema);
+  const groupDeclared = groupOrder(query.groupBy, schema);
   const keys = [...buckets.keys()].sort((a, b) => {
     if (a === NO_VALUE_GROUP) return 1;
     if (b === NO_VALUE_GROUP) return -1;
-    if (declared) {
-      const ai = declared.indexOf(a);
-      const bi = declared.indexOf(b);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-    }
-    return a.localeCompare(b);
+    return (groupDeclared ? compareDeclared(a, b, groupDeclared) : null) ?? a.localeCompare(b);
   });
 
   return keys.map((k) => ({ key: k, tasks: buckets.get(k) ?? [] }));

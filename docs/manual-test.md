@@ -23,6 +23,7 @@ Run after any change to the view, the vault adapter, or the index wiring.
 - [ ] A status chip plus an assignee filter AND together.
 - [ ] Sort by due date orders correctly, and the direction button reverses it.
 - [ ] Tasks with no due date sort last in both directions.
+- [ ] Sort by Priority orders Low, Medium, High, Urgent (Urgent first when reversed), not alphabetically; tasks without one sort last.
 - [ ] Group by status shows groups in schema option order.
 - [ ] "Hide done" removes Done tasks.
 
