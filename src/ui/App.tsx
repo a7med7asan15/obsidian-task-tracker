@@ -79,6 +79,16 @@ export function App({
   const groups = applyQuery(scopeTasks, query, schema, scope.doneStatuses, scope.statusFieldKey);
   const selected = selectedPath === null ? undefined : index.get(selectedPath);
   const detailScope = selected ? registry.scopeForPath(selected.path) : scope;
+  // A rebuild (settings change, failed write) or a restored selection leaves the
+  // open task as a frontmatter-only stub, whose description box stays read-only
+  // until its body is read.
+  useEffect(() => {
+    if (selected && !selected.bodyLoaded) {
+      index.loadBody(selected.path).catch((e: unknown) => {
+        new Notice(`Task Tracker: ${e instanceof Error ? e.message : String(e)}`);
+      });
+    }
+  }, [selected?.path, selected?.bodyLoaded]);
   const warnings = registry.warningsFor(current);
   const projectNames = [...new Set(registry.all().map((p) => p.name ?? ''))];
 

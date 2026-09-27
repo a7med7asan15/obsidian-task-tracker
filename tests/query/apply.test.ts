@@ -16,6 +16,7 @@ const task = (over: Partial<Task> & { id: string }): Task => ({
   fields: {},
   description: '',
   comments: [],
+  bodyLoaded: true,
   created: null,
   updated: null,
   parseErrors: [],

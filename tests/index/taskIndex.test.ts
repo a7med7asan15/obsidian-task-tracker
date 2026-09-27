@@ -43,6 +43,23 @@ describe('TaskIndex', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it('marks frontmatter-only tasks as not body-loaded, and loadBody as loaded', async () => {
+    source.add('Tasks/TASK-3 C.md', { id: 'TASK-3', title: 'C' },
+      '---\nid: TASK-3\n---\n\n## Description\n\nReal text\n');
+    await index.rebuild();
+    const stub = index.get('Tasks/TASK-3 C.md');
+    expect(stub?.bodyLoaded).toBe(false);
+    expect(stub?.description).toBe('');
+
+    const loaded = await index.loadBody('Tasks/TASK-3 C.md');
+    expect(loaded?.bodyLoaded).toBe(true);
+    expect(loaded?.description).toBe('Real text');
+
+    // A rebuild drops back to the stub; the app reloads the open task's body.
+    await index.rebuild();
+    expect(index.get('Tasks/TASK-3 C.md')?.bodyLoaded).toBe(false);
+  });
+
   it('exposes ids for id allocation', async () => {
     await index.rebuild();
     expect(index.ids().sort()).toEqual(['TASK-1', 'TASK-2']);

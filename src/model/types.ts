@@ -16,6 +16,12 @@ export interface Task {
   fields: Record<string, unknown>;
   description: string;
   comments: Comment[];
+  /**
+   * False for the frontmatter-only stub the index builds without reading the
+   * file: `description` and `comments` are then empty because they were never
+   * read, not because the note has none. Nothing may write them back yet.
+   */
+  bodyLoaded: boolean;
   created: string | null;
   updated: string | null;
   /** Non-empty means render a warning rather than widgets. */

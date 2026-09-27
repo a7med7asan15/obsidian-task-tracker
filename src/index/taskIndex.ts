@@ -43,7 +43,7 @@ export class TaskIndex {
   /** Frontmatter only — deliberately does not read file bodies. */
   private indexOne(path: string): void {
     const fm = this.source.frontmatterOf(path) ?? {};
-    this.tasks.set(path, parseTask(path, fm, ''));
+    this.tasks.set(path, parseTask(path, fm, '', false));
   }
 
   /** Full content read — used for paths whose body was previously loaded. */

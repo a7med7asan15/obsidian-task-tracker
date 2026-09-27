@@ -86,6 +86,7 @@ export function parseTask(
   path: string,
   frontmatter: Record<string, unknown>,
   content: string,
+  bodyLoaded = true,
 ): Task {
   const parseErrors: string[] = [];
   const sections = locateSections(content);
@@ -120,6 +121,7 @@ export function parseTask(
     fields,
     description,
     comments,
+    bodyLoaded,
     created: typeof frontmatter.created === 'string' ? frontmatter.created : null,
     updated: typeof frontmatter.updated === 'string' ? frontmatter.updated : null,
     parseErrors,

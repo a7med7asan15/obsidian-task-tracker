@@ -4,7 +4,7 @@ import type { ProjectScope } from '../../src/settings/types';
 import type { Task } from '../../src/model/types';
 
 const task = (path: string, fields: Record<string, unknown>): Task => ({
-  path, id: null, title: '', fields, description: '', comments: [],
+  path, id: null, title: '', fields, description: '', comments: [], bodyLoaded: true,
   created: null, updated: null, parseErrors: [],
 });
 

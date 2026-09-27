@@ -4,6 +4,7 @@ import type { FieldDef } from '../schema/types';
 import { FieldWidget } from './FieldWidget';
 import { dueBadge } from './dates';
 import { PROJECT_KEY } from '../settings/projects';
+import { shouldSaveDescription } from './descriptionDraft';
 
 interface Props {
   task: Task;
@@ -98,6 +99,8 @@ export function TaskDetail(props: Props) {
   const { task, schema, dueFieldKey } = props;
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
+  // True while the description box holds typing that has not been saved.
+  const descriptionDirty = useRef(false);
   const [newComment, setNewComment] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState('');
@@ -127,9 +130,17 @@ export function TaskDetail(props: Props) {
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description);
+    descriptionDirty.current = false;
     setNewComment('');
     setEditingId(null);
   }, [task.path, task.updated]);
+
+  // The pane usually opens on the index's frontmatter-only stub, and the body
+  // arrives later with the same path and `updated`, which the effect above
+  // does not see. Take it up here unless the user is already typing.
+  useEffect(() => {
+    if (!descriptionDirty.current) setDescription(task.description);
+  }, [task.description, task.bodyLoaded]);
 
   const badge = dueBadge(
     dueFieldKey ? ((task.fields[dueFieldKey] as string | undefined) ?? null) : null,
@@ -229,10 +240,17 @@ export function TaskDetail(props: Props) {
         <textarea
           class="tt-description"
           rows={8}
-          placeholder="Add a description…"
+          placeholder={task.bodyLoaded ? 'Add a description…' : 'Loading…'}
+          readOnly={!task.bodyLoaded}
           value={description}
-          onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-          onBlur={() => { if (description !== task.description) props.onSetDescription(description); }}
+          onInput={(e) => {
+            descriptionDirty.current = true;
+            setDescription((e.target as HTMLTextAreaElement).value);
+          }}
+          onBlur={() => {
+            if (shouldSaveDescription(task, description)) props.onSetDescription(description);
+            descriptionDirty.current = false;
+          }}
         />
       </section>
 
